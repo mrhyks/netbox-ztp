@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h2>{{ title }}</h2>
+  {% if source_devices %}
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Enabled</th>
+          <th>Last scan</th>
+          <th>Scan interval</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for source_device in source_devices %}
+          <tr>
+            <td>{{ source_device.device.name }}</td>
+            <td>{{ source_device.enabled|yesno:"Yes,No" }}</td>
+            <td>{{ source_device.last_scan|default:"Never" }}</td>
+            <td>{{ source_device.scan_interval }} seconds</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No source devices have been configured yet.</p>
+  {% endif %}
+{% endblock %}

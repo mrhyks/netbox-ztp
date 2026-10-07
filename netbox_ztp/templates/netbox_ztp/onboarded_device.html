@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h2>{{ object.serial_number }}</h2>
+  <dl class="dl-horizontal">
+    <dt>IP address</dt><dd>{{ object.ip_address }}</dd>
+    <dt>MAC address</dt><dd>{{ object.mac_address }}</dd>
+    <dt>Platform</dt><dd>{{ object.platform }}</dd>
+    <dt>Status</dt><dd>{{ object.get_status_display }}</dd>
+    <dt>Source device</dt><dd>{{ object.source_device }}</dd>
+  </dl>
+{% endblock %}

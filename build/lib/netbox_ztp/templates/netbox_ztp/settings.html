@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h2>{{ title }}</h2>
+  <table class="table table-striped">
+    <tr>
+      <th>ARP scan interval</th>
+      <td>{{ arp_scan_interval }} seconds</td>
+    </tr>
+    <tr>
+      <th>Default SSH username</th>
+      <td>{{ default_ssh_username }}</td>
+    </tr>
+    <tr>
+      <th>Default SSH password</th>
+      <td>{{ default_ssh_password }}</td>
+    </tr>
+  </table>
+  <p>These values are configured in the NetBox plugin settings section of <code>/opt/netbox/netbox/netbox/configuration.py</code>.</p>
+{% endblock %}

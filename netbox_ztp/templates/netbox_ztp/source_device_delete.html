@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h2>Delete source device</h2>
+  <p>Are you sure you want to delete {{ object.device.name }}?</p>
+  <form method="post">{% csrf_token %}
+    <button type="submit" class="btn btn-danger">Delete</button>
+    <a href="{{ request.path|cut:'delete/' }}" class="btn btn-secondary">Cancel</a>
+  </form>
+{% endblock %}

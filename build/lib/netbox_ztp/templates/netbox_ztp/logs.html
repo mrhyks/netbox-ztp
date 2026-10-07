@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h2>{{ title }}</h2>
+  {% if logs %}
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Level</th>
+          <th>Serial</th>
+          <th>IP</th>
+          <th>Message</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in logs %}
+          <tr>
+            <td>{{ entry.time }}</td>
+            <td>{{ entry.level }}</td>
+            <td>{{ entry.serial_number }}</td>
+            <td>{{ entry.ip_address|default:"-" }}</td>
+            <td>{{ entry.message }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No log entries are available yet.</p>
+  {% endif %}
+{% endblock %}
