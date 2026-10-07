@@ -1,4 +1,3 @@
-from django.utils.translation import gettext_lazy as _
 
 from netbox.views.generic import (
     BulkDeleteView,
@@ -9,18 +8,22 @@ from netbox.views.generic import (
 )
 from utilities.views import register_model_view
 
-from netbox_ztp.filters import OnboardedDeviceFilterSet, SourceDeviceFilterForm, SourceDeviceFilterSet
+from netbox_ztp.filters import (
+    OnboardedDeviceFilterSet,
+    SourceDeviceFilterForm,
+    SourceDeviceFilterSet,
+)
 from netbox_ztp.models import OnboardedDevice, SourceDevice, ZTPLog
 from netbox_ztp.tables import OnboardedDeviceTable, SourceDeviceTable, ZTPLogTable
 
 __all__ = [
-    "SourceDeviceListView",
-    "SourceDeviceView",
-    "SourceDeviceDeleteView",
-    "SourceDeviceBulkEditView",
-    "SourceDeviceBulkDeleteView",
     "OnboardedDeviceListView",
     "OnboardedDeviceView",
+    "SourceDeviceBulkDeleteView",
+    "SourceDeviceBulkEditView",
+    "SourceDeviceDeleteView",
+    "SourceDeviceListView",
+    "SourceDeviceView",
 ]
 
 
