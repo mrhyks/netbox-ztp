@@ -39,6 +39,13 @@ PLUGINS_CONFIG = {
 
 This should be placed in the NetBox config file at `/opt/netbox/netbox/netbox/configuration.py` in the `PLUGINS_CONFIG` section, or the equivalent plugin configuration area used by your installation.
 
+After enabling the plugin, run the database migration so NetBox creates the plugin tables:
+
+```bash
+cd /opt/netbox/netbox
+python3 manage.py migrate
+```
+
 ## Default credentials
 
 The default SSH credentials are configured by the plugin settings and intentionally match the requested bootstrap credential set:
