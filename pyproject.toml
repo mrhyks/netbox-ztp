@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "netbox-ztp"
-authors = [{name = "Matìj Hykš", email = "hyks.matej@gmail.com"}]
-maintainers = [{name = "Matìj Hykš", email = "hyks.matej@gmail.com"}]
+authors = [{name = "Matej Hyks", email = "hyks.matej@gmail.com"}]
+maintainers = [{name = "Matej Hyks", email = "hyks.matej@gmail.com"}]
 version = "0.1.0"
 description = "Zero Touch Provisioning plugin for NetBox"
 readme = "README.md"
@@ -33,3 +33,6 @@ skip-string-normalization = 1
 fast = 1
 check = 0
 diff = 0
+
+[tool.pyright]
+reportCallIssue = false

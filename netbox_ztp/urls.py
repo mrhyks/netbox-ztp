@@ -1,11 +1,14 @@
-from django.urls import path
+from django.urls import include, path
 
-from .views import views
+from utilities.urls import get_model_urls
+
+from . import views
+
+app_name = "netbox_ztp"
 
 urlpatterns = [
-    path("", views.dashboard, name="dashboard"),
-    path("source-devices/", views.source_device_list, name="source_device_list"),
-    path("onboarded-devices/", views.onboarded_device_list, name="onboarded_device_list"),
-    path("settings/", views.settings, name="settings"),
-    path("logs/", views.logs, name="logs"),
+    path(
+        "source-devices/",
+        include(get_model_urls(app_name, "sourcedevice", detail=False)),
+    ),
 ]

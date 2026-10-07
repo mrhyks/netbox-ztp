@@ -1,9 +1,17 @@
 from django.db import models
+from django.urls import reverse
 
 from dcim.models import Device
+from netbox.models import PrimaryModel
+
+__all__ = [
+    "OnboardedDevice",
+    "SourceDevice",
+    "ZTPLog",
+]
 
 
-class SourceDevice(models.Model):
+class SourceDevice(PrimaryModel):
     device = models.OneToOneField(Device, on_delete=models.CASCADE, related_name="ztp_source")
     enabled = models.BooleanField(default=True)
     scan_interval = models.IntegerField(default=300)
@@ -18,9 +26,12 @@ class SourceDevice(models.Model):
 
     def __str__(self) -> str:
         return str(self.device)
+    
+    def get_absolute_url(self):
+        return reverse("plugins:netbox_ztp:sourcedevice", args=[self.pk])
 
 
-class OnboardedDevice(models.Model):
+class OnboardedDevice(PrimaryModel):
     STATUS_CHOICES = (
         ("new", "New"),
         ("onboarded", "Onboarded"),
@@ -49,7 +60,7 @@ class OnboardedDevice(models.Model):
         return self.serial_number or self.ip_address
 
 
-class ZTPLog(models.Model):
+class ZTPLog(PrimaryModel):
     LEVEL_CHOICES = (
         ("info", "Info"),
         ("success", "Success"),

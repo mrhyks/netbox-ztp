@@ -129,6 +129,9 @@ dmypy.json
 .pyre/
 
 .idea
+.vscode/
+
+# NetBox symbolic links
 netbox
 utilities
-.vscode/
+dcim

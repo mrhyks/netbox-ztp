@@ -1,9 +1,10 @@
 import django_tables2 as tables
 
-from .models import OnboardedDevice, SourceDevice, ZTPLog
+from netbox.tables import NetBoxTable
+from netbox_ztp.models import OnboardedDevice, SourceDevice, ZTPLog
 
 
-class SourceDeviceTable(tables.Table):
+class SourceDeviceTable(NetBoxTable):
     device = tables.Column(accessor="device__name", verbose_name="Device")
     enabled = tables.BooleanColumn(verbose_name="Enabled")
     last_scan = tables.DateTimeColumn(verbose_name="Last scan")
@@ -15,7 +16,7 @@ class SourceDeviceTable(tables.Table):
         attrs = {"class": "table table-striped table-hover"}
 
 
-class OnboardedDeviceTable(tables.Table):
+class OnboardedDeviceTable(NetBoxTable):
     serial_number = tables.Column(verbose_name="Serial")
     ip_address = tables.Column(verbose_name="IP")
     mac_address = tables.Column(verbose_name="MAC")
@@ -28,7 +29,7 @@ class OnboardedDeviceTable(tables.Table):
         attrs = {"class": "table table-striped table-hover"}
 
 
-class ZTPLogTable(tables.Table):
+class ZTPLogTable(NetBoxTable):
     time = tables.DateTimeColumn(verbose_name="Time")
     level = tables.Column(verbose_name="Level")
     serial_number = tables.Column(verbose_name="Serial")
