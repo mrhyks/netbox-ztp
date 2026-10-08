@@ -1,8 +1,6 @@
-from .views import *
+from .sourcetable import *
 
 __all__ = [
-    "OnboardedDeviceListView",
-    "OnboardedDeviceView",
     "SourceDeviceBulkDeleteView",
     "SourceDeviceBulkEditView",
     "SourceDeviceDeleteView",
