@@ -7,12 +7,12 @@ from .models import OnboardedDevice, SourceDevice
 
 
 class SourceDeviceFilterSet(FilterSet):
-    q = CharFilter(method="search", label=_("Search"))
-    enabled = BooleanFilter(field_name="enabled")
+    q = CharFilter(method='search', label=_('Search'))
+    enabled = BooleanFilter(field_name='enabled')
 
     class Meta:
         model = SourceDevice
-        fields = ["q", "enabled"]
+        fields = ['q', 'enabled']
 
     def search(self, queryset, name, value):
         return queryset.filter(
@@ -23,17 +23,17 @@ class SourceDeviceFilterSet(FilterSet):
 
 
 class SourceDeviceFilterForm(forms.Form):
-    q = forms.CharField(required=False, label=_("Search"))
-    enabled = forms.NullBooleanField(required=False, label=_("Enabled"))
+    q = forms.CharField(required=False, label=_('Search'))
+    enabled = forms.NullBooleanField(required=False, label=_('Enabled'))
 
 
 class OnboardedDeviceFilterSet(FilterSet):
-    q = CharFilter(method="search", label=_("Search"))
-    status = CharFilter(field_name="status", lookup_expr="icontains")
+    q = CharFilter(method='search', label=_('Search'))
+    status = CharFilter(field_name='status', lookup_expr='icontains')
 
     class Meta:
         model = OnboardedDevice
-        fields = ["q", "status"]
+        fields = ['q', 'status']
 
     def search(self, queryset, name, value):
         return queryset.filter(
@@ -42,3 +42,8 @@ class OnboardedDeviceFilterSet(FilterSet):
             | Q(mac_address__icontains=value)
             | Q(platform__icontains=value)
         )
+
+
+class OnboardedDeviceFilterForm(forms.Form):
+    q = forms.CharField(required=False, label=_('Search'))
+    status = forms.CharField(required=False, label=_('Status'))

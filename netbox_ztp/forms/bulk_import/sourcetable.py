@@ -10,9 +10,9 @@ class SourceDeviceImportForm(PrimaryModelForm):
     device = CSVModelChoiceField(
         queryset=Device.objects.all(),
         required=True,
-        label=_("Device"),
+        label=_('Device'),
     )
 
     class Meta:
         model = SourceDevice
-        fields = ["device", "enabled", "scan_interval"]
+        fields = ['device', 'enabled', 'scan_interval']

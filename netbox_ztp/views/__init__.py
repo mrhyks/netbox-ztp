@@ -1,9 +1,15 @@
+from .onboarded_device import *
 from .sourcetable import *
 
 __all__ = [
-    "SourceDeviceBulkDeleteView",
-    "SourceDeviceBulkEditView",
-    "SourceDeviceDeleteView",
-    "SourceDeviceListView",
-    "SourceDeviceView",
+    'OnboardedDeviceBulkDeleteView',
+    'OnboardedDeviceDeleteView',
+    'OnboardedDeviceListView',
+    'OnboardedDeviceView',
+    'SourceDeviceBulkDeleteView',
+    'SourceDeviceBulkEditView',
+    'SourceDeviceBulkImportView',
+    'SourceDeviceDeleteView',
+    'SourceDeviceListView',
+    'SourceDeviceView',
 ]

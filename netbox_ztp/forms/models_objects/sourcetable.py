@@ -10,12 +10,12 @@ from utilities.forms.fields import DynamicModelChoiceField
 class SourceDeviceForm(PrimaryModelForm):
     device = DynamicModelChoiceField(
         queryset=Device.objects.all(),
-        label=_("Device"),
+        label=_('Device'),
     )
-    enabled = forms.BooleanField(label=_("Enabled"))
-    scan_interval = forms.IntegerField(label=_("Scan Interval"))
+    enabled = forms.BooleanField(label=_('Enabled'))
+    scan_interval = forms.IntegerField(label=_('Scan Interval'))
 
     class Meta:
         model = SourceDevice
-        fields = ["device", "enabled", "scan_interval"]
+        fields = ['device', 'enabled', 'scan_interval']
     
