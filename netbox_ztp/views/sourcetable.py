@@ -21,6 +21,7 @@ from netbox_ztp.tables import SourceDeviceTable
 __all__ = [
     "SourceDeviceBulkDeleteView",
     "SourceDeviceBulkEditView",
+    "SourceDeviceBulkImportView",
     "SourceDeviceDeleteView",
     "SourceDeviceListView",
     "SourceDeviceView",
@@ -52,19 +53,19 @@ class SourceDeviceEditView(ObjectEditView):
     form = SourceDeviceForm
 
 
-@register_model_view(SourceDevice, name="bulk-delete")
+@register_model_view(SourceDevice, name="bulk_delete", detail = False)
 class SourceDeviceBulkDeleteView(BulkDeleteView):
     queryset = SourceDevice.objects.all()
     filterset = SourceDeviceFilterSet
     table = SourceDeviceTable
     
-@register_model_view(SourceDevice, name="bulk-edit")
+@register_model_view(SourceDevice, name="bulk_edit", detail = False)
 class SourceDeviceBulkEditView(BulkEditView):
     queryset = SourceDevice.objects.all()
     filterset = SourceDeviceFilterSet
     table = SourceDeviceTable
     
-@register_model_view(SourceDevice, name="bulk-import")
+@register_model_view(SourceDevice, name="bulk_import", detail = False)
 class SourceDeviceBulkImportView(BulkImportView):
     queryset = SourceDevice.objects.all()
     model_form = SourceDeviceImportForm

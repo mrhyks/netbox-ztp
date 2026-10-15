@@ -16,8 +16,8 @@ class SourceDevice(PrimaryModel):
     enabled = models.BooleanField(default=True)
     scan_interval = models.IntegerField(default=300)
     last_scan = models.DateTimeField(null=True, blank=True)
-    created = models.DateTimeField(auto_now_add=True)
-    updated = models.DateTimeField(auto_now=True)
+    created = models.DateTimeField(null=True, auto_now_add=True)
+    updated = models.DateTimeField(null=True, auto_now=True)
 
     class Meta:
         ordering = ("device__name",)
