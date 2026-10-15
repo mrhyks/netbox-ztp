@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from netbox.plugins import PluginConfig
 
 
@@ -7,8 +9,8 @@ class NetBoxZTPConfig(PluginConfig):
     description = 'Zero Touch Provisioning for NetBox'
     version = '0.1.0'
     base_url = 'ztp'
-    required_settings = []
-    default_settings = {
+    required_settings: ClassVar[list[str]] = []
+    default_settings: ClassVar[dict[str, object]] = {
         'arp_scan_interval': 300,
         'default_ssh_username': 'ztp',
         'default_ssh_password': 'ZTPzerodayPassword',

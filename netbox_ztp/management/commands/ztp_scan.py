@@ -1,5 +1,4 @@
 from django.core.management.base import BaseCommand
-
 from netbox_ztp.tasks import run_ztp_scan
 
 

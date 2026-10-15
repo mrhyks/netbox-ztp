@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from django.utils.translation import gettext as _
 
 from dcim.models import Device
@@ -15,4 +17,4 @@ class SourceDeviceImportForm(PrimaryModelForm):
 
     class Meta:
         model = SourceDevice
-        fields = ['device', 'enabled', 'scan_interval']
+        fields: ClassVar[list[str]] = ['device', 'enabled', 'scan_interval']

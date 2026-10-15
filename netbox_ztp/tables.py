@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import django_tables2 as tables
 
 from netbox.tables import NetBoxTable
@@ -13,7 +15,7 @@ class SourceDeviceTable(NetBoxTable):
     class Meta:
         model = SourceDevice
         fields = ('device', 'enabled', 'last_scan', 'scan_interval')
-        attrs = {'class': 'table table-striped table-hover'}
+        attrs: ClassVar[dict[str, str]] = {'class': 'table table-striped table-hover'}
 
 
 class OnboardedDeviceTable(NetBoxTable):
@@ -26,7 +28,7 @@ class OnboardedDeviceTable(NetBoxTable):
     class Meta:
         model = OnboardedDevice
         fields = ('serial_number', 'ip_address', 'mac_address', 'platform', 'status')
-        attrs = {'class': 'table table-striped table-hover'}
+        attrs: ClassVar[dict[str, str]] = {'class': 'table table-striped table-hover'}
 
 
 class ZTPLogTable(NetBoxTable):
@@ -39,4 +41,4 @@ class ZTPLogTable(NetBoxTable):
     class Meta:
         model = ZTPLog
         fields = ('time', 'level', 'serial_number', 'ip_address', 'message')
-        attrs = {'class': 'table table-striped table-hover'}
+        attrs: ClassVar[dict[str, str]] = {'class': 'table table-striped table-hover'}

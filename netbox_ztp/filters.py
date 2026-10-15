@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from django import forms
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
@@ -12,7 +14,7 @@ class SourceDeviceFilterSet(FilterSet):
 
     class Meta:
         model = SourceDevice
-        fields = ['q', 'enabled']
+        fields: ClassVar[list[str]] = ['q', 'enabled']
 
     def search(self, queryset, name, value):
         return queryset.filter(
@@ -33,7 +35,7 @@ class OnboardedDeviceFilterSet(FilterSet):
 
     class Meta:
         model = OnboardedDevice
-        fields = ['q', 'status']
+        fields: ClassVar[list[str]] = ['q', 'status']
 
     def search(self, queryset, name, value):
         return queryset.filter(

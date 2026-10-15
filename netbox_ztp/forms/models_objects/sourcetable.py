@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from django import forms
 from django.utils.translation import gettext as _
 
@@ -17,5 +19,5 @@ class SourceDeviceForm(PrimaryModelForm):
 
     class Meta:
         model = SourceDevice
-        fields = ['device', 'enabled', 'scan_interval']
+        fields: ClassVar[list[str]] = ['device', 'enabled', 'scan_interval']
     
