@@ -5,7 +5,7 @@ from netbox_ztp.models import OnboardedDevice, SourceDevice, ZTPLog
 
 
 class SourceDeviceTable(NetBoxTable):
-    device = tables.Column(accessor="device__name", verbose_name="Device")
+    device = tables.Column(accessor="device__name", verbose_name="Device", linkify=True)
     enabled = tables.BooleanColumn(verbose_name="Enabled")
     last_scan = tables.DateTimeColumn(verbose_name="Last scan")
     scan_interval = tables.Column(verbose_name="Scan interval")

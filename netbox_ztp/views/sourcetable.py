@@ -10,7 +10,8 @@ from netbox.views.generic import (
 )
 from utilities.views import register_model_view
 from netbox_ztp.forms import SourceDeviceForm, SourceDeviceImportForm
-from netbox.ui import layout
+from netbox.ui import layout, panels
+from netbox_ztp.ui import SourceDevicePanel
 from netbox_ztp.filters import (
     SourceDeviceFilterForm,
     SourceDeviceFilterSet,
@@ -23,6 +24,7 @@ __all__ = [
     "SourceDeviceBulkEditView",
     "SourceDeviceBulkImportView",
     "SourceDeviceDeleteView",
+    "SourceDeviceEditView",
     "SourceDeviceListView",
     "SourceDeviceView",
 ]
@@ -40,6 +42,15 @@ class SourceDeviceListView(ObjectListView):
 class SourceDeviceView(ObjectView):
     queryset = SourceDevice.objects.all()
     template_name = "generic/object.html"
+    layout = layout.SimpleLayout(
+        left_panels=[
+            SourceDevicePanel(),
+        ],
+        right_panels=[
+            panels.CommentsPanel(),
+            panels.RelatedObjectsPanel(),
+        ],
+    )
 
 
 @register_model_view(SourceDevice, name="delete")
