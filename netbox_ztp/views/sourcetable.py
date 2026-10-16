@@ -1,5 +1,9 @@
 from typing import ClassVar
 
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.views import View
+
 from netbox.object_actions import DeleteObject, EditObject
 from netbox.ui import layout, panels
 from netbox.views.generic import (
@@ -16,7 +20,9 @@ from netbox_ztp.filters import (
     SourceDeviceFilterSet,
 )
 from netbox_ztp.forms import SourceDeviceForm, SourceDeviceImportForm
-from netbox_ztp.jobs import IngestDevices
+from netbox_ztp.jobs.actions import IngestDevices
+from netbox_ztp.jobs.actions import OnboardDevices as OnboardDeviceAction
+from netbox_ztp.jobs.jobs import OnboardDevices as OnboardDeviceScript
 from netbox_ztp.models import SourceDevice
 from netbox_ztp.tables import SourceDeviceTable
 from netbox_ztp.ui import SourceDevicePanel
@@ -54,7 +60,16 @@ class SourceDeviceView(ObjectView):
             panels.RelatedObjectsPanel(),
         ],
     )
-    actions: ClassVar[list[object]] = [EditObject, DeleteObject, IngestDevices]
+    actions: ClassVar[list[object]] = [EditObject, DeleteObject, IngestDevices, OnboardDeviceAction]
+
+
+@register_model_view(SourceDevice, name='onboard')
+class SourceDeviceOnboardView(View):
+    def get(self, request, pk):
+        obj = SourceDevice.objects.get(pk=pk)
+        OnboardDeviceScript(obj).run()
+        messages.success(request, f'Onboard workflow launched for {obj}')
+        return redirect(obj.get_absolute_url())
 
 
 @register_model_view(SourceDevice, name='delete')

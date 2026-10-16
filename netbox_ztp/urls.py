@@ -1,7 +1,9 @@
 from django.urls import include, path
 
 from utilities.urls import get_model_urls
+
 from . import views  # noqa: F401
+
 app_name = 'netbox_ztp'
 
 urlpatterns = [

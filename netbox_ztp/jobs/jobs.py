@@ -1,4 +1,6 @@
+
 from netbox.plugins import get_plugin_config
+from netbox_ztp.models import SourceDevice
 
 
 class ArpCollectionJob:
@@ -19,9 +21,11 @@ class ArpCollectionJob:
         return arp_table
     
 class OnboardDevices:
-    def __init__(self, object_id):
-        self.object_id = object_id
+    def __init__(self, object: SourceDevice):
+        self.object = object
 
     def run(self):
-        # Implement the onboarding logic here
-        pass
+        username = str(get_plugin_config('netbox_ztp', 'username'))
+        password = str(get_plugin_config('netbox_ztp', 'password'))
+        print(f"[DEBUG] Running job on object_id={self.object.pk}, username={username}, password={password}")
+        

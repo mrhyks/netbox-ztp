@@ -1,5 +1,4 @@
 from netbox.api.serializers import PrimaryModelSerializer
-
 from netbox_ztp.models import OnboardedDevice, SoftwareAssignment, SourceDevice, ZTPLog
 
 __all__ = (

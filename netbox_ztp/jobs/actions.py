@@ -13,3 +13,15 @@ class IngestDevices(ObjectAction):
     label = _('Ingest Devices')
     multi = True
     permissions_required: ClassVar[set[str]] = {'ingest'}
+    template_name = 'buttons/add.html'
+
+
+class OnboardDevices(ObjectAction):
+    """
+    Trigger the onboarding workflow for a source device.
+    """
+    name = 'onboard'
+    label = _('Onboard Devices')
+    url_kwargs = ['pk']
+    permissions_required: ClassVar[set[str]] = {'change'}
+    template_name = 'buttons/add.html'
