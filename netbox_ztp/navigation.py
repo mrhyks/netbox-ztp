@@ -28,12 +28,26 @@ menu = PluginMenu(
                     )
                 ),
                 PluginMenuItem(
-                    link='plugins:netbox_ztp:onboarded_device_list',
+                    link='plugins:netbox_ztp:onboardeddevice_list',
                     link_text='Onboarded devices',
                 ),
                 PluginMenuItem(
-                    link='plugins:netbox_ztp:software_assignment_list',
+                    link='plugins:netbox_ztp:softwareassignment_list',
                     link_text='Software Assignments',
+                    buttons=(
+                        PluginMenuButton(
+                            link='plugins:netbox_ztp:softwareassignment_add',
+                            title='Add',
+                            icon_class=COL_ADD,
+                            permissions=('netbox_ztp.add_softwareassignment',)
+                        ),
+                        PluginMenuButton(
+                            link='plugins:netbox_ztp:softwareassignment_bulk_import',
+                            title='Import',
+                            icon_class=COL_IMPORT,
+                            permissions=('netbox_ztp.add_softwareassignment',)
+                        ),
+                    )
                 ),
                 # PluginMenuItem(
                 #     link='plugins:netbox_ztp:logs',

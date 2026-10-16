@@ -30,7 +30,7 @@ class OnboardedDeviceListView(ObjectListView):
     actions = (BulkDelete, BulkExport)
 
 
-@register_model_view(OnboardedDevice, name='view')
+@register_model_view(OnboardedDevice)
 class OnboardedDeviceView(ObjectView):
     queryset = OnboardedDevice.objects.all()
     template_name = 'generic/object.html'

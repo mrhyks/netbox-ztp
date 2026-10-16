@@ -6,6 +6,7 @@ from netbox.models import PrimaryModel
 
 __all__ = [
     'OnboardedDevice',
+    'SoftwareAssignment',
     'SourceDevice',
     'ZTPLog',
 ]
@@ -60,7 +61,7 @@ class OnboardedDevice(PrimaryModel):
         return self.serial_number or self.ip_address
 
     def get_absolute_url(self):
-        return reverse('plugins:netbox_ztp:onboarded_device', args=[self.pk])
+        return reverse('plugins:netbox_ztp:onboardeddevice', args=[self.pk])
 
 
 class ZTPLog(PrimaryModel):
@@ -89,8 +90,9 @@ class ZTPLog(PrimaryModel):
 class SoftwareAssignment(PrimaryModel):
     device_types = models.ManyToManyField(DeviceType, related_name='software_assignments')
     checksum = models.CharField(max_length=128, blank=True)
-    version = models.CharField(max_length=128, blank=True)
+    version = models.CharField(max_length=128)
     description = models.TextField(blank=True)
+
     class Meta:
         ordering = ('device_types__model',)
         verbose_name = 'Software assignment'
@@ -98,4 +100,7 @@ class SoftwareAssignment(PrimaryModel):
 
     def __str__(self) -> str:
         return f'{", ".join([dt.model for dt in self.device_types.all()])} - {self.version}'
+
+    def get_absolute_url(self):
+        return reverse('plugins:netbox_ztp:softwareassignment', args=[self.pk])
     

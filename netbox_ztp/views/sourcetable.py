@@ -41,7 +41,7 @@ class SourceDeviceListView(ObjectListView):
     table = SourceDeviceTable
 
 
-@register_model_view(SourceDevice, name='view')
+@register_model_view(SourceDevice)
 class SourceDeviceView(ObjectView):
     queryset = SourceDevice.objects.all()
     template_name = 'generic/object.html'

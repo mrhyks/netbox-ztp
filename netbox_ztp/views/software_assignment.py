@@ -41,7 +41,7 @@ class SoftwareAssignmentListView(ObjectListView):
     table = SoftwareAssignmentTable
 
 
-@register_model_view(SoftwareAssignment, name='view')
+@register_model_view(SoftwareAssignment)
 class SoftwareAssignmentView(ObjectView):
     queryset = SoftwareAssignment.objects.all()
     template_name = 'generic/object.html'
