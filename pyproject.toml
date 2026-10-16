@@ -36,6 +36,8 @@ diff = 0
 
 [tool.pyright]
 reportCallIssue = false
+reportIncompatibleVariableOverride = false
+reportIncompatibleMethodOverride = false
 
 [tool.ruff]
 exclude = [    

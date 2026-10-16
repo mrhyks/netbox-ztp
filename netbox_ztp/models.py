@@ -20,6 +20,8 @@ class SourceDevice(PrimaryModel):
     created = models.DateTimeField(null=True, auto_now_add=True)
     updated = models.DateTimeField(null=True, auto_now=True)
 
+    prerequisite_models = ('dcim.Device',)
+    
     class Meta:
         ordering = ('device__name',)
         verbose_name = 'Source device'
@@ -92,6 +94,8 @@ class SoftwareAssignment(PrimaryModel):
     checksum = models.CharField(max_length=128, blank=True)
     version = models.CharField(max_length=128)
     description = models.TextField(blank=True)
+    
+    prerequisite_models = ('dcim.DeviceType',)
 
     class Meta:
         ordering = ('device_types__model',)
@@ -100,7 +104,8 @@ class SoftwareAssignment(PrimaryModel):
 
     def __str__(self) -> str:
         return f'{", ".join([dt.model for dt in self.device_types.all()])} - {self.version}'
-
     def get_absolute_url(self):
+        if self.pk is None:
+            return ''
         return reverse('plugins:netbox_ztp:softwareassignment', args=[self.pk])
     
