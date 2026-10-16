@@ -3,7 +3,7 @@ from typing import ClassVar
 import django_tables2 as tables
 
 from netbox.tables import NetBoxTable
-from netbox_ztp.models import OnboardedDevice, SourceDevice, ZTPLog
+from netbox_ztp.models import OnboardedDevice, SoftwareAssignment, SourceDevice, ZTPLog
 
 
 class SourceDeviceTable(NetBoxTable):
@@ -41,4 +41,15 @@ class ZTPLogTable(NetBoxTable):
     class Meta:
         model = ZTPLog
         fields = ('time', 'level', 'serial_number', 'ip_address', 'message')
+        attrs: ClassVar[dict[str, str]] = {'class': 'table table-striped table-hover'}
+
+class SoftwareAssignmentTable(NetBoxTable):
+    device_types = tables.Column(verbose_name='Device Types')
+    checksum = tables.Column(verbose_name='Checksum')
+    version = tables.Column(verbose_name='Version')
+    description = tables.Column(verbose_name='Description')
+
+    class Meta:
+        model = SoftwareAssignment
+        fields = ('device_types', 'checksum', 'version', 'description')
         attrs: ClassVar[dict[str, str]] = {'class': 'table table-striped table-hover'}

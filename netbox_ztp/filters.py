@@ -5,7 +5,7 @@ from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 from django_filters import BooleanFilter, CharFilter, FilterSet
 
-from .models import OnboardedDevice, SourceDevice
+from .models import OnboardedDevice, SoftwareAssignment, SourceDevice
 
 
 class SourceDeviceFilterSet(FilterSet):
@@ -49,3 +49,28 @@ class OnboardedDeviceFilterSet(FilterSet):
 class OnboardedDeviceFilterForm(forms.Form):
     q = forms.CharField(required=False, label=_('Search'))
     status = forms.CharField(required=False, label=_('Status'))
+
+class SoftwareAssignmentFilterSet(FilterSet):
+    q = CharFilter(method='search', label=_('Search'))
+    device_types = CharFilter(field_name='device_types', lookup_expr='icontains')
+    checksum = CharFilter(field_name='checksum', lookup_expr='icontains')
+    version = CharFilter(field_name='version', lookup_expr='icontains')
+
+    class Meta:
+        model = SoftwareAssignment
+        fields: ClassVar[list[str]] = ['q', 'device_types', 'checksum', 'version']
+
+    def search(self, queryset, name, value):
+        return queryset.filter(
+            Q(device_types__icontains=value)
+            | Q(checksum__icontains=value)
+            | Q(version__icontains=value)
+            | Q(description__icontains=value)
+        )
+
+class SoftwareAssignmentFilterForm(forms.Form):
+    q = forms.CharField(required=False, label=_('Search'))
+    device_types = forms.CharField(required=False, label=_('Device Types'))
+    checksum = forms.CharField(required=False, label=_('Checksum'))
+    version = forms.CharField(required=False, label=_('Version'))
+    description = forms.CharField(required=False, label=_('Description'))

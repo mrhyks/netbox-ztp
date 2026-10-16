@@ -31,10 +31,10 @@ menu = PluginMenu(
                     link='plugins:netbox_ztp:onboarded_device_list',
                     link_text='Onboarded devices',
                 ),
-                # PluginMenuItem(
-                #     link='plugins:netbox_ztp:settings',
-                #     link_text='Settings',
-                # ),
+                PluginMenuItem(
+                    link='plugins:netbox_ztp:software_assignment_list',
+                    link_text='Software Assignments',
+                ),
                 # PluginMenuItem(
                 #     link='plugins:netbox_ztp:logs',
                 #     link_text='Logs',

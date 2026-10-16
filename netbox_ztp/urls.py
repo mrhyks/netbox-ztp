@@ -1,7 +1,7 @@
 from django.urls import path
 
 from netbox.views.generic import ObjectChangeLogView
-from netbox_ztp.models import OnboardedDevice, SourceDevice
+from netbox_ztp.models import OnboardedDevice, SoftwareAssignment, SourceDevice
 from netbox_ztp.views import (
     OnboardedDeviceBulkDeleteView,
     OnboardedDeviceDeleteView,
@@ -15,6 +15,7 @@ from netbox_ztp.views import (
     SourceDeviceListView,
     SourceDeviceView,
 )
+from netbox_ztp.views.software_assignment import SoftwareAssignmentListView
 
 app_name = 'netbox_ztp'
 
@@ -43,4 +44,11 @@ urlpatterns = [
         name='onboarded_device_changelog',
         kwargs={'model': OnboardedDevice},
     ),
+    path('software-assignments/', SoftwareAssignmentListView.as_view(), name='software_assignment_list'),
+    path('software-assignments/<int:pk>/', SoftwareAssignmentListView.as_view(), name='software_assignment'),
+    path('software-assignments/<int:pk>/changelog/', ObjectChangeLogView.as_view(), name='software_assignment_changelog', kwargs={'model': SoftwareAssignment}),
+    path('software-assignments/<int:pk>/edit/', SoftwareAssignmentListView.as_view(), name='software_assignment_edit'),
+    path('software-assignments/<int:pk>/delete/', SoftwareAssignmentListView.as_view(), name='software_assignment_delete'),
+    path('software-assignments/add/', SoftwareAssignmentListView.as_view(), name='software_assignment_add'),
+    
 ]

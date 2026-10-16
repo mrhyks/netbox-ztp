@@ -1,3 +1,6 @@
+from typing import ClassVar
+
+from netbox.object_actions import DeleteObject, EditObject
 from netbox.ui import layout, panels
 from netbox.views.generic import (
     BulkDeleteView,
@@ -13,7 +16,7 @@ from netbox_ztp.filters import (
     SourceDeviceFilterSet,
 )
 from netbox_ztp.forms import SourceDeviceForm, SourceDeviceImportForm
-from netbox_ztp.jobs import OnboardDevices
+from netbox_ztp.jobs import IngestDevices
 from netbox_ztp.models import SourceDevice
 from netbox_ztp.tables import SourceDeviceTable
 from netbox_ztp.ui import SourceDevicePanel
@@ -51,10 +54,7 @@ class SourceDeviceView(ObjectView):
             panels.RelatedObjectsPanel(),
         ],
     )
-    def get_extra_context(self, request, instance):
-        return {
-            'job': OnboardDevices(instance.pk),
-        }
+    actions: ClassVar[list[object]] = [EditObject, DeleteObject, IngestDevices]
 
 
 @register_model_view(SourceDevice, name='delete')

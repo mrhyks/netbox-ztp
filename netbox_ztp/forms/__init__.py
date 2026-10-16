@@ -1,7 +1,9 @@
-from netbox_ztp.forms.bulk_import.sourcetable import SourceDeviceImportForm
-from netbox_ztp.forms.models_objects.sourcetable import SourceDeviceForm
+from .bulk_import import *
+from .models_objects import *
 
 __all__ = [
+    'SoftwareAssignmentForm',
+    'SoftwareAssignmentImportForm',
     'SourceDeviceForm',
-    'SourceDeviceImportForm',
+    'SourceDeviceImportForm'
 ]

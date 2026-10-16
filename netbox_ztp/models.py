@@ -1,7 +1,7 @@
 from django.db import models
 from django.urls import reverse
 
-from dcim.models import Device
+from dcim.models import Device, DeviceType
 from netbox.models import PrimaryModel
 
 __all__ = [
@@ -85,3 +85,17 @@ class ZTPLog(PrimaryModel):
 
     def __str__(self) -> str:
         return f'{self.time.isoformat()} - {self.level}'
+
+class SoftwareAssignment(PrimaryModel):
+    device_types = models.ManyToManyField(DeviceType, related_name='software_assignments')
+    checksum = models.CharField(max_length=128, blank=True)
+    version = models.CharField(max_length=128, blank=True)
+    description = models.TextField(blank=True)
+    class Meta:
+        ordering = ('device_types__model',)
+        verbose_name = 'Software assignment'
+        verbose_name_plural = 'Software assignments'
+
+    def __str__(self) -> str:
+        return f'{", ".join([dt.model for dt in self.device_types.all()])} - {self.version}'
+    

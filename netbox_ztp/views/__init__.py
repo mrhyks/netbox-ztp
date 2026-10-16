@@ -1,4 +1,5 @@
 from .onboarded_device import *
+from .software_assignment import *
 from .sourcetable import *
 
 __all__ = [
@@ -6,6 +7,12 @@ __all__ = [
     'OnboardedDeviceDeleteView',
     'OnboardedDeviceListView',
     'OnboardedDeviceView',
+    'SoftwareAssignmentBulkDeleteView',
+    'SoftwareAssignmentBulkEditView',
+    'SoftwareAssignmentBulkImportView',
+    'SoftwareAssignmentDeleteView',
+    'SoftwareAssignmentListView',
+    'SoftwareAssignmentView',
     'SourceDeviceBulkDeleteView',
     'SourceDeviceBulkEditView',
     'SourceDeviceBulkImportView',
