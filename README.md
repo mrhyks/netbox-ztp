@@ -30,9 +30,8 @@ PLUGINS = [
 
 PLUGINS_CONFIG = {
     "netbox_ztp": {
-        "arp_scan_interval": 300,
-        "default_ssh_username": "ztp",
-        "default_ssh_password": "ZTPzerodayPassword",
+        "username": "ztp",
+        "password": "ZTPzerodayPassword",
     },
 }
 ```
