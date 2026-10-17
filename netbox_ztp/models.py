@@ -1,7 +1,10 @@
+import ipaddress
+
 from django.db import models
 from django.urls import reverse
 
 from dcim.models import Device, DeviceType, Interface
+from ipam.models import IPRange
 from netbox.models import PrimaryModel
 
 __all__ = [
@@ -22,14 +25,22 @@ class SourceDevice(PrimaryModel):
         blank=True,
         help_text='Optional interface to restrict monitoring for this source device.',
     )
+    ip_range = models.ForeignKey(
+        IPRange,
+        on_delete=models.SET_NULL,
+        related_name='source_devices',
+        null=True,
+        blank=True,
+        help_text='Optional IPv4/IPv6 range to accept',
+    )
     enabled = models.BooleanField(default=True)
     scan_interval = models.IntegerField(default=300)
     last_scan = models.DateTimeField(null=True, blank=True)
     created = models.DateTimeField(null=True, auto_now_add=True)
     updated = models.DateTimeField(null=True, auto_now=True)
 
-    prerequisite_models = ('dcim.Device', 'dcim.Interface')
-    
+    prerequisite_models = ('dcim.Device',)
+
     class Meta:
         ordering = ('device__name',)
         verbose_name = 'Source device'
@@ -37,7 +48,7 @@ class SourceDevice(PrimaryModel):
 
     def __str__(self) -> str:
         return str(self.device)
-    
+
     def get_absolute_url(self):
         return reverse('plugins:netbox_ztp:sourcedevice', args=[self.pk])
 

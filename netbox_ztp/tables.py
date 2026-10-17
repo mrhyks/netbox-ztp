@@ -9,13 +9,14 @@ from netbox_ztp.models import OnboardedDevice, SoftwareAssignment, SourceDevice,
 class SourceDeviceTable(NetBoxTable):
     device = tables.Column(accessor='device__name', verbose_name='Device', linkify=True)
     interface = tables.Column(accessor='interface__name', verbose_name='Interface', linkify=True)
+    ip_range = tables.Column(verbose_name='IP Range')
     enabled = tables.BooleanColumn(verbose_name='Enabled')
     last_scan = tables.DateTimeColumn(verbose_name='Last scan')
     scan_interval = tables.Column(verbose_name='Scan interval')
 
     class Meta:
         model = SourceDevice
-        fields = ('device', 'interface', 'enabled', 'last_scan', 'scan_interval')
+        fields = ('device', 'interface', 'ip_range', 'enabled', 'last_scan', 'scan_interval')
         attrs: ClassVar[dict[str, str]] = {'class': 'table table-striped table-hover'}
 
 
