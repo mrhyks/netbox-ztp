@@ -9,10 +9,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    replaces = [('netbox_ztp', '0001_initial'), ('netbox_ztp', '0002_onboardeddevice_comments_and_more'), ('netbox_ztp', '0003_alter_sourcedevice_created_and_more'), ('netbox_ztp', '0004_softwareassignment'), ('netbox_ztp', '0005_sourcedevice_interface'), ('netbox_ztp', '0006_sourcedevice_ip_range'), ('netbox_ztp', '0007_remove_sourcedevice_ip_range_and_more'), ('netbox_ztp', '0008_sourcedevice_ip_range')]
-
     dependencies = [
-        ('dcim', '0001_initial'),
         ('dcim', '0251_fix_ltree_cascade_triggers'),
         ('extras', '0144_customfield_status'),
         ('ipam', '0097_merge_ipaddress_host_index_and_multi_protocol_services'),

@@ -3,7 +3,7 @@ from typing import ClassVar
 from django import forms
 from django.utils.translation import gettext as _
 
-from dcim.models import Device, Interface
+from dcim.models import Device, Interface, Manufacturer
 from ipam.models import IPRange
 from netbox.forms import PrimaryModelForm
 from netbox_ztp.models import SourceDevice
@@ -16,7 +16,7 @@ class SourceDeviceForm(PrimaryModelForm):
         label=_('Device'),
     )
     interface = DynamicModelChoiceField(
-        queryset=Interface.objects.none(),
+        queryset=Interface.objects.all(),
         required=False,
         selector=True,
         label=_('Interface'),
@@ -30,31 +30,14 @@ class SourceDeviceForm(PrimaryModelForm):
         required=False,
         label=_('IP Range'),
     )
+    onboarded_devices_vendor = DynamicModelChoiceField(
+        queryset=Manufacturer.objects.all(),
+        label=_('Onboarded Device Vendor'),
+        help_text=_('Required vendor used for onboarding discovered devices.'),
+    )
     enabled = forms.BooleanField(label=_('Enabled'), required=False)
     scan_interval = forms.IntegerField(label=_('Scan Interval'), min_value=1, required=False)
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if self.instance and self.instance.pk and self.instance.device_id:
-            device_id = self.instance.device_id
-        elif self.data and self.data.get('device'):
-            device_id = self.data.get('device')
-        else:
-            device_id = None
-
-        if device_id:
-            self.fields['interface'].queryset = Interface.objects.filter(device_id=device_id)
-        else:
-            self.fields['interface'].queryset = Interface.objects.none()
-
-    def clean(self):
-        cleaned_data = super().clean()
-        selected_device = cleaned_data.get('device')
-        selected_interface = cleaned_data.get('interface')
-        if selected_interface and selected_device and selected_interface.device_id != selected_device.pk:
-            raise forms.ValidationError(_('Selected interface must belong to the selected device.'))
-        return cleaned_data
-
     class Meta:
         model = SourceDevice
-        fields: ClassVar[list[str]] = ['device', 'interface', 'ip_range', 'enabled', 'scan_interval']
+        fields: ClassVar[list[str]] = ['device', 'interface', 'ip_range', 'onboarded_devices_vendor', 'enabled', 'scan_interval']

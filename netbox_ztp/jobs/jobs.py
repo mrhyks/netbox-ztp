@@ -51,35 +51,33 @@ class OnboardDevices:
                 ).lower() == interface_name.lower()
             ]
         if self.source_device.ip_range:
+            start_range = str(self.source_device.ip_range.start_address).split('/')[0]
+            end_range = str(self.source_device.ip_range.end_address).split('/')[0]
             arp_entries = [
                 entry for entry in arp_entries
-                if ipaddress.ip_address(str(entry.get('ip') or entry.get('address') or entry.get('ip_address') or '')) in ipaddress.ip_network(self.source_device.ip_range)
+                if start_range <= str(entry.get('ip', '')) <= end_range
             ]
 
         print(
             f"[DEBUG] Retrieved ARP entries for interface '{interface_name or 'all interfaces'}' and range '{self.source_device.ip_range or 'all addresses'}': "
             f"{arp_entries}"
         )
-
-        drivers = ['ios', 'junos']
         for entry in arp_entries:
             ip_value = str(entry.get('ip') or entry.get('address') or entry.get('ip_address') or '')
             if not ip_value:
                 continue
-            for driver in drivers:
-                try:
-                    onboarded_driver = get_network_driver(driver)
-                    onboarded_connection = onboarded_driver(
-                        hostname=ip_value,
-                        username=zeroday_username,
-                        password=zeroday_password,
-                        optional_args=optional_args,
-                    )
-                    onboarded_connection.open()
-                    print(f"[DEBUG] Successfully connected to onboarded device with IP '{ip_value}' using driver '{driver}'")
-                    print(onboarded_connection.get_facts())
-                    onboarded_connection.close()
-                    break
-                except Exception as exc:
-                    print(f"[ERROR] Failed to connect to onboarded device with IP '{ip_value}' using driver '{driver}': {exc}")
-                    continue
+            try:
+                onboarded_driver = get_network_driver(self.source_device.onboarded_devices_vendor.slug.replace('juniper', 'junos').replace('cisco', 'ios'))
+                onboarded_connection = onboarded_driver(
+                    hostname=ip_value,
+                    username=zeroday_username,
+                    password=zeroday_password,
+                    optional_args=optional_args,
+                )
+                onboarded_connection.open()
+                print(f"[DEBUG] Successfully connected to onboarded device with IP '{ip_value}' using driver '{driver}'")
+                print(onboarded_connection.get_facts())
+                onboarded_connection.close()
+            except Exception as exc:
+                print(f"[ERROR] Failed to connect to onboarded device with IP '{ip_value}' using driver '{driver}': {exc}")
+                continue

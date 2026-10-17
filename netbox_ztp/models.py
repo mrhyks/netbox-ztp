@@ -3,7 +3,7 @@ import ipaddress
 from django.db import models
 from django.urls import reverse
 
-from dcim.models import Device, DeviceType, Interface
+from dcim.models import Device, DeviceType, Interface, Manufacturer
 from ipam.models import IPRange
 from netbox.models import PrimaryModel
 
@@ -32,6 +32,14 @@ class SourceDevice(PrimaryModel):
         null=True,
         blank=True,
         help_text='Optional IPv4/IPv6 range to accept',
+    )
+    onboarded_devices_vendor = models.ForeignKey(
+        Manufacturer,
+        on_delete=models.PROTECT,
+        null=False,
+        blank=False,
+        related_name='ztp_source_devices',
+        help_text='Required vendor for onboarded devices.',
     )
     enabled = models.BooleanField(default=True)
     scan_interval = models.IntegerField(default=300)
