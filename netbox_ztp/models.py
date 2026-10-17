@@ -1,7 +1,7 @@
 from django.db import models
 from django.urls import reverse
 
-from dcim.models import Device, DeviceType
+from dcim.models import Device, DeviceType, Interface
 from netbox.models import PrimaryModel
 
 __all__ = [
@@ -14,13 +14,21 @@ __all__ = [
 
 class SourceDevice(PrimaryModel):
     device = models.OneToOneField(Device, on_delete=models.CASCADE, related_name='ztp_source')
+    interface = models.ForeignKey(
+        Interface,
+        on_delete=models.SET_NULL,
+        related_name='ztp_source_devices',
+        null=True,
+        blank=True,
+        help_text='Optional interface to restrict monitoring for this source device.',
+    )
     enabled = models.BooleanField(default=True)
     scan_interval = models.IntegerField(default=300)
     last_scan = models.DateTimeField(null=True, blank=True)
     created = models.DateTimeField(null=True, auto_now_add=True)
     updated = models.DateTimeField(null=True, auto_now=True)
 
-    prerequisite_models = ('dcim.Device',)
+    prerequisite_models = ('dcim.Device', 'dcim.Interface')
     
     class Meta:
         ordering = ('device__name',)

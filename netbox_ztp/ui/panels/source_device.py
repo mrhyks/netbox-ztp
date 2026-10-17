@@ -6,6 +6,7 @@ __all__ = ['SourceDevicePanel']
 
 class SourceDevicePanel(panels.ObjectAttributesPanel):
     device = attrs.RelatedObjectAttr('device', label=_('Device'), linkify=True)
+    interface = attrs.RelatedObjectAttr('interface', label=_('Interface'), linkify=True)
     enabled = attrs.BooleanAttr('enabled', label=_('Enabled'))
     last_scan = attrs.DateTimeAttr('last_scan', label=_('Last Scan'))
     scan_interval = attrs.TextAttr('scan_interval', label=_('Scan Interval'))

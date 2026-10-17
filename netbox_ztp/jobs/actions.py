@@ -22,6 +22,6 @@ class OnboardDevices(ObjectAction):
     """
     name = 'onboard'
     label = _('Onboard Devices')
-    url_kwargs = ['pk']
+    url_kwargs: ClassVar[list[str]] = ['pk']
     permissions_required: ClassVar[set[str]] = {'change'}
     template_name = 'buttons/add.html'
