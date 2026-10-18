@@ -49,10 +49,10 @@ menu = PluginMenu(
                         ),
                     )
                 ),
-                # PluginMenuItem(
-                #     link='plugins:netbox_ztp:logs',
-                #     link_text='Logs',
-                # ),
+                PluginMenuItem(
+                    link='plugins:netbox_ztp:ztplog_list',
+                    link_text='Logs',
+                ),
             ),
         ),
     ),

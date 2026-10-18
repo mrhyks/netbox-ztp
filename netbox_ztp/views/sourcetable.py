@@ -60,7 +60,12 @@ class SourceDeviceView(ObjectView):
             panels.RelatedObjectsPanel(),
         ],
     )
-    actions: ClassVar[list[object]] = [EditObject, DeleteObject, IngestDevices, OnboardDeviceAction]
+    actions: ClassVar[list[object]] = [
+        EditObject,
+        DeleteObject,
+        IngestDevices,
+        OnboardDeviceAction,
+    ]
 
 
 @register_model_view(SourceDevice, name='onboard')
@@ -76,6 +81,7 @@ class SourceDeviceOnboardView(View):
 class SourceDeviceDeleteView(ObjectDeleteView):
     queryset = SourceDevice.objects.all()
 
+
 @register_model_view(SourceDevice, name='add', detail=False)
 @register_model_view(SourceDevice, name='edit')
 class SourceDeviceEditView(ObjectEditView):
@@ -83,20 +89,21 @@ class SourceDeviceEditView(ObjectEditView):
     form = SourceDeviceForm
 
 
-@register_model_view(SourceDevice, name='bulk_delete', detail = False)
+@register_model_view(SourceDevice, name='bulk_delete', detail=False)
 class SourceDeviceBulkDeleteView(BulkDeleteView):
     queryset = SourceDevice.objects.all()
     filterset = SourceDeviceFilterSet
     table = SourceDeviceTable
-    
-@register_model_view(SourceDevice, name='bulk_edit', detail = False)
+
+
+@register_model_view(SourceDevice, name='bulk_edit', detail=False)
 class SourceDeviceBulkEditView(BulkEditView):
     queryset = SourceDevice.objects.all()
     filterset = SourceDeviceFilterSet
     table = SourceDeviceTable
-    
-@register_model_view(SourceDevice, name='bulk_import', detail = False)
+
+
+@register_model_view(SourceDevice, name='bulk_import', detail=False)
 class SourceDeviceBulkImportView(BulkImportView):
     queryset = SourceDevice.objects.all()
     model_form = SourceDeviceImportForm
-

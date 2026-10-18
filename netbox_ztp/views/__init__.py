@@ -1,6 +1,7 @@
 from .onboarded_device import *
 from .software_assignment import *
 from .sourcetable import *
+from .ztplog import *
 
 __all__ = [
     'OnboardedDeviceBulkDeleteView',
@@ -19,4 +20,7 @@ __all__ = [
     'SourceDeviceDeleteView',
     'SourceDeviceListView',
     'SourceDeviceView',
+    'ZTPLogBulkDeleteView',
+    'ZTPLogBulkExportView',
+    'ZTPLogListView',
 ]

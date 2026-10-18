@@ -13,4 +13,6 @@ urlpatterns = [
     path('onboarded-devices/<int:pk>/', include(get_model_urls(app_name, 'onboardeddevice'))),
     path('software-assignments/', include(get_model_urls(app_name, 'softwareassignment', detail=False))),
     path('software-assignments/<int:pk>/', include(get_model_urls(app_name, 'softwareassignment'))),
+    path('ztp-logs/', include(get_model_urls(app_name, 'ztplog', detail=False))),
+    path('ztp-logs/<int:pk>/', include(get_model_urls(app_name, 'ztplog'))),
 ]

@@ -1,6 +1,5 @@
 from typing import ClassVar
 
-from django import forms
 from django.utils.translation import gettext as _
 
 from dcim.models import Device, Interface, Manufacturer

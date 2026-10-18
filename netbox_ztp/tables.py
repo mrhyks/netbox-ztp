@@ -2,7 +2,7 @@ from typing import ClassVar
 
 import django_tables2 as tables
 
-from netbox.tables import NetBoxTable
+from netbox.tables import NetBoxTable, columns
 from netbox_ztp.models import OnboardedDevice, SoftwareAssignment, SourceDevice, ZTPLog
 
 
@@ -40,6 +40,9 @@ class ZTPLogTable(NetBoxTable):
     serial_number = tables.Column(verbose_name='Serial')
     ip_address = tables.Column(verbose_name='IP')
     message = tables.Column(verbose_name='Message')
+    actions = columns.ActionsColumn(
+        actions=('delete',)
+    )
 
     class Meta:
         model = ZTPLog
