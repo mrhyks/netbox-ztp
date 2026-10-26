@@ -8,5 +8,5 @@ class SoftwareAssignmentForm(PrimaryModelForm):
 
     class Meta:
         model = SoftwareAssignment
-        fields: ClassVar[list[str]] = ['device_types', 'checksum', 'version', 'description']
+        fields: ClassVar[list[str]] = ['device_types', 'checksum', 'version', 'file_path', 'description']
     

@@ -59,16 +59,18 @@ class SoftwareAssignmentFilterSet(FilterSet):
     device_types = CharFilter(field_name='device_types', lookup_expr='icontains')
     checksum = CharFilter(field_name='checksum', lookup_expr='icontains')
     version = CharFilter(field_name='version', lookup_expr='icontains')
+    file_path = CharFilter(field_name='file_path', lookup_expr='icontains')
 
     class Meta:
         model = SoftwareAssignment
-        fields: ClassVar[list[str]] = ['q', 'device_types', 'checksum', 'version']
+        fields: ClassVar[list[str]] = ['q', 'device_types', 'checksum', 'version', 'file_path']
 
     def search(self, queryset, name, value):
         return queryset.filter(
             Q(device_types__icontains=value)
             | Q(checksum__icontains=value)
             | Q(version__icontains=value)
+            | Q(file_path__icontains=value)
             | Q(description__icontains=value)
         )
 
@@ -77,4 +79,5 @@ class SoftwareAssignmentFilterForm(forms.Form):
     device_types = forms.CharField(required=False, label=_('Device Types'))
     checksum = forms.CharField(required=False, label=_('Checksum'))
     version = forms.CharField(required=False, label=_('Version'))
+    file_path = forms.CharField(required=False, label=_('File Path'))
     description = forms.CharField(required=False, label=_('Description'))

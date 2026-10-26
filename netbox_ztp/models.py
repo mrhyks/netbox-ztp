@@ -65,18 +65,13 @@ class OnboardedDevice(PrimaryModel):
         ('new', 'New'),
         ('onboarded', 'Onboarded'),
         ('needs_update', 'Needs Update'),
+        ('updated', 'Updated'),
         ('failed', 'Failed'),
     )
 
-    device = models.OneToOneField(Device, on_delete=models.SET_NULL, related_name='ztp_onboarded_device', null=True, blank=True)
+    device = models.OneToOneField(Device, on_delete=models.PROTECT, related_name='ztp_onboarded_device')
     source_device = models.ForeignKey(SourceDevice, on_delete=models.PROTECT, related_name='onboarded_devices')
-    ip_address = models.GenericIPAddressField(protocol='IPv4')
-    mac_address = models.CharField(max_length=17, blank=True)
-    serial_number = models.CharField(max_length=128, unique=True)
-    platform = models.CharField(max_length=128, blank=True)
-    manufacturer = models.CharField(max_length=128, blank=True)
     status = models.CharField(max_length=32, choices=STATUS_CHOICES, default='new')
-    rendered_config = models.TextField(blank=True)
     last_seen = models.DateTimeField(auto_now=True)
     created = models.DateTimeField(auto_now_add=True)
 
@@ -86,7 +81,13 @@ class OnboardedDevice(PrimaryModel):
         verbose_name_plural = 'Onboarded devices'
 
     def __str__(self) -> str:
-        return self.serial_number or self.ip_address
+        return self.device.serial or self.device.primary_ip4.address if self.device.primary_ip4 else ''
+
+    def delete(self, *args, **kwargs):
+        device = self.device
+        super().delete(*args, **kwargs)
+        if device.pk:
+            device.delete()
 
     def get_absolute_url(self):
         return reverse('plugins:netbox_ztp:onboardeddevice', args=[self.pk])
@@ -119,8 +120,9 @@ class SoftwareAssignment(PrimaryModel):
     device_types = models.ManyToManyField(DeviceType, related_name='software_assignments')
     checksum = models.CharField(max_length=128, blank=True)
     version = models.CharField(max_length=128)
+    file_path = models.CharField(max_length=255, blank=True, help_text='Path to the software image file.')
     description = models.TextField(blank=True)
-    
+
     prerequisite_models = ('dcim.DeviceType',)
 
     class Meta:
@@ -129,7 +131,9 @@ class SoftwareAssignment(PrimaryModel):
         verbose_name_plural = 'Software assignments'
 
     def __str__(self) -> str:
-        return f'{", ".join([dt.model for dt in self.device_types.all()])} - {self.version}'
+        base = f'{", ".join([dt.model for dt in self.device_types.all()])} - {self.version}'
+        return f'{base} - {self.file_path}' if self.file_path else base
+
     def get_absolute_url(self):
         if self.pk is None:
             return ''
