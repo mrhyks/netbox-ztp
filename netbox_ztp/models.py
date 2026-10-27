@@ -69,7 +69,7 @@ class OnboardedDevice(PrimaryModel):
         ('failed', 'Failed'),
     )
 
-    device = models.OneToOneField(Device, on_delete=models.PROTECT, related_name='ztp_onboarded_device')
+    device = models.OneToOneField(Device, on_delete=models.DO_NOTHING, related_name='ztp_onboarded_device')
     source_device = models.ForeignKey(SourceDevice, on_delete=models.PROTECT, related_name='onboarded_devices')
     status = models.CharField(max_length=32, choices=STATUS_CHOICES, default='new')
     last_seen = models.DateTimeField(auto_now=True)

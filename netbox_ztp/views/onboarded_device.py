@@ -1,5 +1,7 @@
 
 from netbox.object_actions import BulkDelete, BulkExport
+from netbox.ui import layout, panels
+from netbox_ztp.ui import OnboardedDevicePanel
 from netbox.views.generic import (
     BulkDeleteView,
     ObjectDeleteView,
@@ -34,7 +36,15 @@ class OnboardedDeviceListView(ObjectListView):
 class OnboardedDeviceView(ObjectView):
     queryset = OnboardedDevice.objects.all()
     template_name = 'generic/object.html'
-
+    layout = layout.SimpleLayout(
+        left_panels=[
+            OnboardedDevicePanel(),
+        ],
+        right_panels=[
+            panels.CommentsPanel(),
+            panels.RelatedObjectsPanel(),
+        ],
+    )
 
 @register_model_view(OnboardedDevice, name='delete')
 class OnboardedDeviceDeleteView(ObjectDeleteView):
