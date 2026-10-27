@@ -7,7 +7,6 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('dcim', '0251_fix_ltree_cascade_triggers'),
         ('netbox_ztp', '0002_sourcedevice_onboarded_devices_vendor'),
     ]
 
