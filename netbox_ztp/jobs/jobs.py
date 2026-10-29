@@ -1,11 +1,9 @@
 import re
-import time
 
 from django.contrib.contenttypes.models import ContentType
 from napalm import get_network_driver
 from napalm.base.base import NetworkDriver
-from napalm.base.models import ARPTableDict, FactsDict
-import netmiko
+from netmiko import BaseConnection, ConnectHandler, file_transfer
 
 from dcim.models import Device, DeviceRole, DeviceType, Interface, MACAddress, Site
 from extras.models import Tag
@@ -13,17 +11,19 @@ from ipam.models import IPAddress
 from netbox.plugins import get_plugin_config
 from netbox_ztp.models import OnboardedDevice, SoftwareAssignment, SourceDevice, ZTPLog
 
+
 def transfer_progress(filename, size, sent):
     if size:
         percent = (sent / size) * 100
         print(
-            f"\rTransferring {filename!s}: {percent:6.2f}% ({sent}/{size} bytes)",
-            end="",
+            f'\rTransferring {filename!s}: {percent:6.2f}% ({sent}/{size} bytes)',
+            end='',
             flush=True,
         )
         if sent >= size:
             print()
-            
+
+
 class OnboardDevices:
     def __init__(self, source_device: SourceDevice):
         self.source_device = source_device
@@ -37,175 +37,6 @@ class OnboardDevices:
             message=message,
         )
         print(message)
-
-    def update_needed(self, version: str, onboarded_device: OnboardedDevice):
-        assignment = SoftwareAssignment.objects.filter(
-            device_types=onboarded_device.device.device_type
-        ).first()
-        self._log(
-            'info',
-            f'Checking if update is needed for device {onboarded_device.device.name}',
-            ip_address=str(onboarded_device.device.primary_ip4.address).split('/')[0],
-            serial_number=onboarded_device.device.serial,
-        )
-        self._log(
-            'info',
-            f'Found {"1" if assignment else "0"} software assignments for device {onboarded_device.device.name}',
-            ip_address=str(onboarded_device.device.primary_ip4.address).split('/')[0],
-            serial_number=onboarded_device.device.serial,
-        )
-        self._log(
-            'info',
-            f'Current software version for device {onboarded_device.device.name} is {version} and required is {assignment.version if assignment else "N/A"}',
-            ip_address=str(onboarded_device.device.primary_ip4.address).split('/')[0],
-            serial_number=onboarded_device.device.serial,
-        )
-        return bool(assignment and assignment.version != version)
-    def check_scp_server(self, connection: netmiko.BaseConnection):
-        try:
-            output = connection.send_command('show run | include scp')
-            if not 'ip scp server enable' in output:
-                connection.config_mode("ip scp server enable")
-                return True
-        except Exception as e:
-            self._log(
-                'error',
-                f'Failed to check SCP server on device {connection.host}: {e}',
-            )
-            return False
-        return True
-
-    def update_device(
-        self,
-        zeroday_username: str,
-        zeroday_password: str,
-        ip_value: str,
-        optional_args: dict,
-        onboarded_device: OnboardedDevice,
-    ) -> bool:
-        assignment = SoftwareAssignment.objects.filter(
-            device_types=onboarded_device.device.device_type
-        ).first()
-        filename = assignment.file_path.split('/')[-1]
-        if (
-            self.source_device.onboarded_devices_vendor.slug.lower() == 'cisco'
-            and assignment
-        ):
-            self._log(
-                'info',
-                f'Starting software update for device {ip_value}',
-            )
-            conn = {
-                'device_type': 'cisco_ios',
-                'host': ip_value,
-                'username': zeroday_username,
-                'password': zeroday_password,
-                'ssh_config_file': optional_args.get('ssh_config_file'),
-            }
-            try:
-                connection = netmiko.ConnectHandler(**conn)
-                connection.send_command('show version')
-                self.check_scp_server(connection)
-            except Exception as e:
-                self._log(
-                    'error',
-                    f'Failed to connect to device {ip_value}: {e}',
-                )
-                return False
-            self._log(
-                'info',
-                f'Uploading software {assignment.file_path} to device {ip_value}',
-            )
-            try:
-                netmiko.file_transfer(
-                    connection,
-                    source_file=assignment.file_path,
-                    dest_file=filename,
-                    file_system='flash:',
-                    direction='put',
-                    overwrite_file=True,
-                    progress=transfer_progress,
-                )
-            except Exception as e:
-                self._log(
-                    'error',
-                    f'Failed to transfer software to device {ip_value}: {e}',
-                )
-                return False
-            self._log(
-                'info',
-                f'Installing software {assignment.file_path} on device {ip_value}',
-            )
-            connection.send_command(
-                f'install add file flash:/{filename} activate commit prompt-level none'
-            )
-            self._log(
-                'info',
-                f'Software {assignment.file_path} installation command sent to device {ip_value}',
-            )
-            connection.disconnect()
-            self._log(
-                'info',
-                f'Waiting for device {ip_value} to complete software installation.',
-            )
-            time.sleep(600)
-            self._log(
-                'info',
-                f'Device {ip_value} should have completed software installation.',
-            )
-            connection = netmiko.ConnectHandler(**conn)
-            output = connection.send_command('show install summary')
-            self._log(
-                'info',
-                f'Software installation summary for device {ip_value}:\n{output}',
-            )
-            connection.disconnect()
-        elif (
-            self.source_device.onboarded_devices_vendor.slug.lower() == 'juniper'
-            and assignment
-        ):
-            path = '/var/tmp/'
-            commands = [
-                f'file copy {assignment.file_path} {path}juniper_{assignment.version}.tgz',
-                f'request system software add {path}juniper_{assignment.version}.tgz no-validate',
-            ]
-            self._log(
-                'info',
-                f'sending commands: {commands} to device {ip_value}',
-            )
-            connection.cli(commands)
-            time.sleep(60)
-            if not connection.is_alive().get('is_alive', True):
-                self._log(
-                    'info',
-                    f'Device {ip_value} is restarting to update.',
-                )
-                connection.close()
-                return True
-        else:
-            path = ''
-            self._log(
-                'info',
-                f'No software assignment found for device {ip_value}.',
-            )
-            return False
-        return False
-
-    def upload_config(self, connection: NetworkDriver, config: str) -> bool:
-        connection.load_replace_candidate(config=config)
-        diff = connection.compare_config()
-        if diff:
-            self._log(
-                'info', f'Configuration diff for device {connection.hostname}:\n{diff}'
-            )
-            connection.commit_config()
-            return True
-        else:
-            self._log(
-                'info', f'No configuration changes for device {connection.hostname}.'
-            )
-            connection.discard_config()
-            return False
 
     def get_arp_entries(self, username, password, optional_args):
         interface_name = (
@@ -267,113 +98,150 @@ class OnboardDevices:
         )
         return arp_entries
 
-    def connect_to_new_device(
-        self, zeroday_username, zeroday_password, ip, optional_args
-    ) -> tuple[NetworkDriver, FactsDict] | None:
-        driver_name = self.source_device.onboarded_devices_vendor.slug.replace(
-            'juniper', 'junos'
-        ).replace('cisco', 'ios')
-        try:
-            onboarded_driver = get_network_driver(driver_name)
-            onboarded_connection = onboarded_driver(
-                hostname=ip,
-                username=zeroday_username,
-                password=zeroday_password,
-                optional_args=optional_args,
-            )
-            onboarded_connection.open()
-            facts = onboarded_connection.get_facts() or {}
-            serial_number = str(facts.get('serial_number') or facts.get('serial') or '')
-            self._log(
-                'success',
-                f"Successfully connected to onboarded device with IP '{ip}' using driver '{self.source_device.onboarded_devices_vendor.slug.replace('juniper', 'junos').replace('cisco', 'ios')}'",
-                ip_address=ip,
-                serial_number=serial_number,
-            )
-            return onboarded_connection, facts
+    def _normalize_mac(self, mac: str) -> str:
+        value = re.sub(r'[^0-9A-Fa-f]', '', str(mac or '')).lower()
+        if len(value) == 14 and value.startswith('01'):
+            value = value[2:]
+        if len(value) != 12:
+            return str(mac or '').strip().lower()
+        return ':'.join(value[i : i + 2] for i in range(0, 12, 2))
 
-        except Exception as exc:  # noqa: BLE001
-            self._log(
-                'error',
-                f"Failed to connect to onboarded device with IP '{ip}' using driver '{driver_name}': {exc}",
-                ip_address=ip,
+    def _extract_cisco_dhcp_leases(self, output: str) -> list[dict]:
+        leases = []
+        for line in output.splitlines():
+            line = line.strip()
+            if not line or line.lower().startswith('ip address'):
+                continue
+            match = re.match(r'^(\d+\.\d+\.\d+\.\d+)\s+([0-9A-Fa-f\.:-]+)', line)
+            if not match:
+                continue
+            ip_value = match.group(1)
+            raw_mac = match.group(2)
+            leases.append(
+                {
+                    'ip': ip_value,
+                    'mac': self._normalize_mac(raw_mac),
+                    'interface': None,
+                    'source': 'dhcp',
+                }
             )
-            return None, None
+        return leases
 
-    def create_primary_ip(
-        self, device: Device, ip_address: str, connection: NetworkDriver, mac: str
-    ) -> IPAddress:
-        self._log('info', f"Creating primary IP '{ip_address}' for device '{device}'")
-        mgmt_interface = Interface.objects.get(device=device, mgmt_only=True)
-        MACAddress.objects.create(
-            mac_address=mac,
-            assigned_object_id=mgmt_interface.pk,
-            assigned_object_type=ContentType.objects.get_for_model(Interface),
-        )
-        mgmt_ip = connection.get_interfaces_ip().get(mgmt_interface.name)
-        ip = IPAddress.objects.create(
-            address=f'{ip_address}/{mgmt_ip.get("ipv4", {}).get(ip_address, {}).get("prefix_length", "")}',
-            assigned_object_id=mgmt_interface.pk,
-            assigned_object_type=ContentType.objects.get_for_model(Interface),
-        )
-        self._log('info', f"Created primary IP '{ip_address}' for device '{device}'")
-        return ip
+    def _extract_juniper_dhcp_leases(self, output: str) -> list[dict]:
+        leases = []
+        for line in output.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            match = re.search(
+                r'(\d+\.\d+\.\d+\.\d+).*?([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})',
+                line,
+            )
+            if not match:
+                continue
+            ip_value = match.group(1)
+            mac_value = self._normalize_mac(match.group(2))
+            interface_match = re.search(
+                r'(ge-|xe-|et-|ae-|irb\.|vlan\.|reth)\S*$', line
+            )
+            interface_name = interface_match.group(0) if interface_match else None
+            leases.append(
+                {
+                    'ip': ip_value,
+                    'mac': mac_value,
+                    'interface': interface_name,
+                    'source': 'dhcp',
+                }
+            )
+        return leases
 
-    def create_new_device(
-        self, connection: NetworkDriver, entry: ARPTableDict
-    ) -> OnboardedDevice:
-        facts = connection.get_facts() or {}
-        self._log('info', f"Creating new device for entry '{entry}'")
-        device = Device.objects.create(
-            name=facts.get('serial_number'),
-            role=DeviceRole.objects.get(name='ztp'),
-            device_type=DeviceType.objects.get(part_number=facts.get('model') or ''),
-            serial=facts.get('serial_number', ''),
-            site=Site.objects.get(name='ztp'),
-            tags=[Tag.objects.get(name='ztp')],
-        )
-        self._log('info', f"Created device '{device.pk}' for entry '{entry}'")
-        self._log('info', f"Creating onboarded device for entry '{entry}'")
-        onboarded_device = OnboardedDevice.objects.create(
-            device=device,
-            source_device=self.source_device,
+    def get_dhcp_leases(self, username, password, optional_args):
+        interface_name = (
+            self.source_device.interface.name if self.source_device.interface else None
         )
         self._log(
             'info',
-            f"Created onboarded device '{onboarded_device.pk}' for entry '{entry}'",
+            f"Collecting DHCP leases from source device '{self.source_device.device.name}'",
         )
-        self._log(
-            'info', f"Creating primary IP for device '{device.pk}' with entry '{entry}'"
+
+        driver_name = str(
+            self.source_device.device.device_type.manufacturer.slug
+        ).lower()
+        driver_name = driver_name.replace('juniper', 'junos').replace('cisco', 'ios')
+        driver = get_network_driver(driver_name)
+        connection = driver(
+            hostname=str(self.source_device.device.name),
+            username=username,
+            password=password,
+            optional_args=optional_args,
         )
-        ip = self.create_primary_ip(
-            device=device,
-            ip_address=str(entry.get('ip', '')),
-            connection=connection,
-            mac=entry.get('mac', ''),
-        )
+        connection.open()
+
+        leases = []
+        try:
+            if driver_name == 'ios':
+                output = str(
+                    connection.cli(['show ip dhcp binding']).get(
+                        'show ip dhcp binding',
+                        '',
+                    )
+                )
+                leases = self._extract_cisco_dhcp_leases(output)
+            elif driver_name == 'junos':
+                command = f'show dhcp server binding {"interface " + interface_name if interface_name else ""} | no-more'
+                output = str(connection.cli([command]).get(command, ''))
+                leases = self._extract_juniper_dhcp_leases(output)
+            else:
+                self._log(
+                    'warning',
+                    f"DHCP lease collection is not implemented for driver '{driver_name}'",
+                )
+        finally:
+            connection.close()
+
+        if interface_name:
+            leases = [
+                entry
+                for entry in leases
+                if str(entry.get('interface') or '').lower() == interface_name.lower()
+            ]
+
         self._log(
             'info',
-            f"Created primary IP '{ip.pk}' for device '{device.pk}' with entry '{entry}'",
+            f"Retrieved DHCP leases for interface '{interface_name or 'all interfaces'}': {leases}",
         )
-        try:
-            self._log(
-                'info',
-                f'Setting primary and OOB IP for device {device}',
-                ip_address=entry.get('ip', ''),
-            )
-            device.primary_ip4 = ip
-            device.oob_ip = ip
-            device.save()
-            self._log(
-                'info',
-                f'Successfully set primary and OOB IP for device {device}',
-                ip_address=entry.get('ip', ''),
-            )
-        except ValueError as e:
-            self._log(
-                'error', f'Error setting primary or OOB IP for device {device}: {e}'
-            )
-        return onboarded_device
+        return leases
+
+    def ensure_ztp_device_role(self):
+        role = DeviceRole.objects.get_or_create(
+            name='ztp',
+            slug='ztp',
+            color='ff0000',
+        )
+        if role[1]:
+            self._log('info', "Created device role 'ztp'")
+        else:
+            self._log('info', "Found device role 'ztp'")
+
+    def ensure_ztp_site(self):
+        _site, created = Site.objects.get_or_create(name='ztp')
+        if created:
+            self._log('info', "Created site 'ztp'")
+        else:
+            self._log('info', "Found site 'ztp'")
+
+    def ensure_tag(self):
+        _tag, created = Tag.objects.get_or_create(name='ztp')
+        if created:
+            self._log('info', "Created tag 'ztp'")
+        else:
+            self._log('info', "Found tag 'ztp'")
+
+    def preflight_check(self):
+        self._log('info', 'Running preflight check for ZTP plugin configuration')
+        self.ensure_ztp_device_role()
+        self.ensure_ztp_site()
+        self.ensure_tag()
 
     def run(self):
         username = get_plugin_config('netbox_ztp', 'username')
@@ -394,112 +262,363 @@ class OnboardDevices:
             )
             return
 
-        arp_entries = self.get_arp_entries(username, password, optional_args)
+        self.preflight_check()
 
-        for entry in arp_entries:
-            try:
-                ip_value = str(entry.get('ip', ''))
-                if not ip_value:
-                    continue
+        dhcp_leases = self.get_dhcp_leases(username, password, optional_args)
 
-                mac_object = MACAddress.objects.filter(
-                    mac_address=entry.get('mac')
-                ).first()
-                onboarded_device = None
-                connection = None
-                facts = {}
-                if mac_object and mac_object.assigned_object:
-                    onboarded_device = (
-                        mac_object.assigned_object.device.ztp_onboarded_device
-                    )
-                    self._log(
-                        'info',
-                        f'Found onboarded device for MAC {entry.get("mac")}',
-                        ip_address=ip_value,
-                    )
-
-                if not onboarded_device:
-                    self._log(
-                        'info',
-                        f'No onboarded device found for MAC {entry.get("mac")}',
-                        ip_address=ip_value,
-                    )
-                    connection, facts = self.connect_to_new_device(
-                        zeroday_username, zeroday_password, ip_value, optional_args
-                    )
-                    if not connection:
-                        continue
-                    onboarded_device = self.create_new_device(connection, entry)
-
-                if onboarded_device.status == 'new' and self.update_needed(
-                    re.findall(r'\d+.\d+.\d+', facts.get('os_version', ''))[0],
-                    onboarded_device,
-                ):
-                    onboarded_device.status = 'needs_update'
-                    onboarded_device.save()
-                    self._log(
-                        'info',
-                        f'Update needed for device {onboarded_device.device.name}',
-                        ip_address=ip_value,
-                        serial_number=onboarded_device.device.serial,
-                    )
-                    self.update_device(
+        for entry in dhcp_leases:
+            address = str(entry.get('ip') or '').strip()
+            mac_address = str(entry.get('mac') or '').strip()
+            if not address or not mac_address:
+                continue
+            if self.source_device.onboarded_devices_vendor.slug == 'cisco':
+                try:
+                    CiscoOnboardedDeviceJob(
                         zeroday_username,
                         zeroday_password,
-                        ip_value,
                         optional_args,
-                        onboarded_device,
-                    )
-                    onboarded_device.status = 'updated'
-                    onboarded_device.save()
-                elif onboarded_device.status == 'new' and not self.update_needed(
-                    re.findall(r'\d+.\d+.\d+', facts.get('os_version', ''))[0],
-                    onboarded_device,
-                ):
-                    onboarded_device.status = 'updated'
-                    onboarded_device.save()
-                elif onboarded_device.status == 'needs_update':
+                        address,
+                        mac_address,
+                        'ios',
+                        self.source_device,
+                    ).onboard_device()
+                except Exception as e:  # noqa: BLE001
                     self._log(
-                        'info',
-                        f'Device {onboarded_device.device.name} needs update',
-                        ip_address=ip_value,
-                        serial_number=onboarded_device.device.serial,
+                        'error', f"Failed to onboard device at address '{address}': {e}"
                     )
-                    connection, facts = self.connect_to_new_device(
-                        zeroday_username, zeroday_password, ip_value, optional_args
-                    )
-                    if self.update_needed(
-                        re.findall(r'\d+.\d+.\d+', facts.get('os_version', ''))[0],
-                        onboarded_device,
-                    ):
-                        self.update_device(
-                            zeroday_username,
-                            zeroday_password,
-                            ip_value,
-                            optional_args,
-                            onboarded_device,
-                        )
-                        onboarded_device.status = 'updated'
-                        onboarded_device.save()
-                    else:
-                        self._log(
-                            'info',
-                            f'Device {onboarded_device.device.name} is already up to date',
-                            ip_address=ip_value,
-                            serial_number=onboarded_device.device.serial,
-                        )
-                        onboarded_device.status = 'updated'
-                        onboarded_device.save()
-                    
 
-                if not connection:
-                    continue
-                if connection:
-                    connection.close()
-                    connection = None
-            except Exception as e:
-                self._log(
-                    'error',
-                    f'Error processing ARP entry {entry}: {e}',
-                    ip_address=ip_value,
+
+class BaseOnboardedDeviceJob(OnboardDevices):
+    """Base job class for onboarding a single device."""
+
+    def __init__(
+        self,
+        username: str,
+        password: str,
+        optional_args: dict,
+        address: str,
+        mac_address: str,
+        driver: str,
+        source_device: SourceDevice,
+    ):
+        self.username = username
+        self.password = password
+        self.optional_args = optional_args
+        self.address = address
+        self.driver = driver
+        self.mac_address = mac_address
+        self.source_device = source_device
+        self._napalm_connection: NetworkDriver = self.napalm_connect()
+        self._netmiko_connection: BaseConnection = self.netmiko_connect()
+        self.onboarded_device = self.ensure_device()
+        self.assignment = SoftwareAssignment.objects.get(
+            device_types=self.onboarded_device.device.device_type
+        )
+
+    def napalm_connect(self) -> NetworkDriver:
+        """Establish a NAPALM connection to the device."""
+        driver = get_network_driver(self.driver)
+        connection = driver(
+            hostname=self.address,
+            username=self.username,
+            password=self.password,
+            optional_args=self.optional_args,
+        )
+        connection.open()
+        self._facts = connection.get_facts() or {}
+        return connection
+
+    def netmiko_connect(self) -> BaseConnection:
+        """Establish a Netmiko connection to the device."""
+        connection = ConnectHandler(
+            device_type=self.driver.replace('ios', 'cisco_ios').replace(
+                'junos', 'juniper_junos'
+            ),
+            host=self.address,
+            username=self.username,
+            password=self.password,
+            **self.optional_args,
+        )
+        return connection
+
+    def create_new_device(self) -> OnboardedDevice:
+
+        self._log('info', f"Creating new device for address '{self.address}'")
+        device = Device.objects.create(
+            name=self._facts.get('serial_number'),
+            role=DeviceRole.objects.get(name='ztp'),
+            device_type=DeviceType.objects.get(
+                part_number=self._facts.get('model') or ''
+            ),
+            serial=self._facts.get('serial_number', ''),
+            site=Site.objects.get(name='ztp'),
+            tags=[Tag.objects.get(name='ztp')],
+        )
+        self._log('info', f"Created device '{device.pk}' for address '{self.address}'")
+
+        self._log('info', f"Creating onboarded device for address '{self.address}'")
+        onboarded_device = OnboardedDevice.objects.create(
+            device=device,
+            source_device=self.source_device,
+        )
+        self._log(
+            'info',
+            f"Created onboarded device '{onboarded_device.pk}' for address '{self.address}'",
+        )
+
+        self._log(
+            'info',
+            f"Creating primary IP for device '{device.pk}' with address '{self.address}'",
+        )
+        ip = self.create_primary_ip(
+            device=device,
+            ip_address=str(self.address),
+            connection=self._napalm_connection,
+            mac=self.mac_address,
+        )
+        self._log(
+            'info',
+            f"Created primary IP '{ip.pk}' for device '{device.pk}' with address '{self.address}'",
+        )
+
+        try:
+            self._log(
+                'info',
+                f'Setting primary and OOB IP for device {device}',
+                ip_address=self.address,
+            )
+            device.primary_ip4 = ip
+            device.oob_ip = ip
+            device.save()
+            self._log(
+                'info',
+                f'Successfully set primary and OOB IP for device {device}',
+                ip_address=self.address,
+            )
+        except ValueError as e:
+            self._log(
+                'error', f'Error setting primary or OOB IP for device {device}: {e}'
+            )
+        return onboarded_device
+
+    def ensure_device(self) -> OnboardedDevice:
+        """Ensure the device exists and return the onboarded device."""
+        try:
+            return OnboardedDevice.objects.get(
+                device__serial=self._facts.get('serial_number')
+            )
+        except OnboardedDevice.DoesNotExist:
+            return self.create_new_device()
+
+    def update_needed(self):
+        version = re.findall(r'\d+.\d+.\d+', self._facts.get('os_version', ''))[0]
+        if not self.onboarded_device.device.primary_ip4:
+            return False
+        self._log(
+            'info',
+            f'Checking if update is needed for device {self.onboarded_device.device.name}',
+            ip_address=str(self.onboarded_device.device.primary_ip4.address).split('/')[
+                0
+            ],
+            serial_number=self.onboarded_device.device.serial,
+        )
+        self._log(
+            'info',
+            f'Found {"1" if self.assignment else "0"} software assignments for device {self.onboarded_device.device.name}',
+            ip_address=str(self.onboarded_device.device.primary_ip4.address).split('/')[
+                0
+            ],
+            serial_number=self.onboarded_device.device.serial,
+        )
+        self._log(
+            'info',
+            f'Current software version for device {self.onboarded_device.device.name} is {version} and required is {self.assignment.version if self.assignment else "N/A"}',
+            ip_address=str(self.onboarded_device.device.primary_ip4.address).split('/')[
+                0
+            ],
+            serial_number=self.onboarded_device.device.serial,
+        )
+        return bool(self.assignment and self.assignment.version != version)
+
+    def upload_config(self, connection: NetworkDriver, config: str) -> bool:
+        connection.load_replace_candidate(config=config)
+        diff = connection.compare_config()
+        if diff:
+            self._log(
+                'info', f'Configuration diff for device {connection.hostname}:\n{diff}'
+            )
+            connection.commit_config()
+            return True
+        else:
+            self._log(
+                'info', f'No configuration changes for device {connection.hostname}.'
+            )
+            connection.discard_config()
+            return False
+
+    def create_primary_ip(
+        self, device: Device, ip_address: str, connection: NetworkDriver, mac: str
+    ) -> IPAddress:
+        self._log('info', f"Creating primary IP '{ip_address}' for device '{device}'")
+        mgmt_interface = Interface.objects.get(device=device, mgmt_only=True)
+        MACAddress.objects.create(
+            mac_address=mac,
+            assigned_object_id=mgmt_interface.pk,
+            assigned_object_type=ContentType.objects.get_for_model(Interface),
+        )
+        mgmt_ip = connection.get_interfaces_ip().get(mgmt_interface.name)
+        ip = IPAddress.objects.create(
+            address=f'{ip_address}/{mgmt_ip.get("ipv4", {}).get(ip_address, {}).get("prefix_length", "")}',
+            assigned_object_id=mgmt_interface.pk,
+            assigned_object_type=ContentType.objects.get_for_model(Interface),
+        )
+        self._log('info', f"Created primary IP '{ip_address}' for device '{device}'")
+        return ip
+
+
+class CiscoOnboardedDeviceJob(BaseOnboardedDeviceJob):
+    def ensure_scp_server(self) -> None:
+        """Ensure the SCP server is enabled on the device."""
+        try:
+            output = self._netmiko_connection.send_command('show run | include scp')
+            if not 'ip scp server enable' in output:
+                self._netmiko_connection.config_mode()
+                self._netmiko_connection.send_command('ip scp server enable')
+                self._netmiko_connection.exit_config_mode()
+        except Exception as e:  # noqa: BLE001
+            self._log(
+                'error',
+                f'Failed to check SCP server on device {self._netmiko_connection.host}: {e}',
+            )
+
+    def check_file_exists(self) -> bool:
+        """Check if the file exists on the device."""
+        try:
+            output = self._netmiko_connection.send_command(
+                f'dir flash: | include {self.assignment.file_path.split("/")[-1]}'
+            )
+            return self.assignment.file_path.split('/')[-1] in output
+        except Exception as e:  # noqa: BLE001
+            self._log(
+                'error',
+                f'Failed to check file existence on device {self._netmiko_connection.host}: {e}',
+            )
+            return False
+
+    def update_device(self) -> None:
+        """Update the device version as needed."""
+        try:
+            self.ensure_scp_server()
+            if not self.check_file_exists():
+                file_transfer(
+                    self._netmiko_connection,
+                    source_file=self.assignment.file_path,
+                    dest_file=self.assignment.file_path.split('/')[-1],
+                    file_system='flash:',
+                    direction='put',
+                    overwrite_file=False,
+                    progress=transfer_progress,
                 )
+                self._log(
+                    'info',
+                    f'Transferred file {self.assignment.file_path} to device {self.address}.',
+                )
+            else:
+                self._log(
+                    'info',
+                    f'File {self.assignment.file_path} already exists on device {self.address}.',
+                )
+            self._netmiko_connection.send_command('write memory')
+            self._log('info', f'Wrote memory on device {self.address}.')
+            self._netmiko_connection.send_command_timing(
+                f'install add file flash:{self.assignment.file_path.split("/")[-1]} activate commit prompt-level none',
+                cmd_verify=False,
+                strip_prompt=False,
+                strip_command=False,
+            )
+
+            self._log(
+                'info',
+                f'Device {self.address} updated with file {self.assignment.file_path.split("/")[-1]}, waiting for restart.',
+            )
+            self._netmiko_connection.disconnect()
+            self.onboarded_device.status = 'updating'
+            self.onboarded_device.save()
+        except Exception as e:  # noqa: BLE001
+            self._log(
+                'error',
+                f'Failed to update device {self._netmiko_connection.host}: {e}',
+            )
+
+    def update_cleanup(self) -> None:
+        """Clean up inactive packages on the device."""
+        try:
+            self._log(
+                'info', f'Cleaning up inactive packages on device {self.address}.'
+            )
+            remove_inactive_output = self._netmiko_connection.send_command_timing(
+                'install remove inactive',
+                cmd_verify=False,
+                strip_prompt=False,
+                strip_command=False,
+            )
+            remove_inactive_output_text = str(remove_inactive_output)
+            if re.search(
+                r'Do you want to remove the above files\?\s*\[y/n\]',
+                remove_inactive_output_text,
+                re.IGNORECASE,
+            ):
+                remove_inactive_output_text += str(
+                    self._netmiko_connection.send_command_timing(
+                        'y',
+                        cmd_verify=False,
+                        strip_prompt=False,
+                        strip_command=False,
+                    )
+                )
+            self._log(
+                'info',
+                f'Inactive package cleanup output for device {self.address}:\n{remove_inactive_output_text}',
+            )
+        except Exception as e:  # noqa: BLE001
+            self._log(
+                'error',
+                f'Failed to clean up inactive packages on device {self._netmiko_connection.host}: {e}',
+            )
+
+    def onboard_device(self) -> None:
+        """Onboard the device."""
+        try:
+            if self.onboarded_device.status == 'new' and self.update_needed():
+                self.onboarded_device.status = 'needs_update'
+                self.onboarded_device.save()
+                self.update_device()
+                self.onboarded_device.status = 'updated'
+                self.onboarded_device.save()
+
+            elif self.onboarded_device.status == 'new' and not self.update_needed():
+                self.onboarded_device.status = 'updated'
+                self.onboarded_device.save()
+
+            elif (
+                self.onboarded_device.status == 'needs_update' and self.update_needed()
+            ):
+                self.update_device()
+                self.onboarded_device.status = 'updated'
+                self.onboarded_device.save()
+
+            elif (
+                self.onboarded_device.status == 'needs_update'
+                or self.onboarded_device.status == 'updating'
+            ) and not self.update_needed():
+                self.onboarded_device.status = 'updated'
+                self.onboarded_device.save()
+
+            self._netmiko_connection.disconnect()
+            self._napalm_connection.close()
+
+        except Exception as e:  # noqa: BLE001
+            self._log(
+                'error',
+                f'Failed to onboard device {self.address}: {e}',
+            )

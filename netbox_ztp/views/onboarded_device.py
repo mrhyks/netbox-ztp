@@ -1,7 +1,6 @@
 
 from netbox.object_actions import BulkDelete, BulkExport
 from netbox.ui import layout, panels
-from netbox_ztp.ui import OnboardedDevicePanel
 from netbox.views.generic import (
     BulkDeleteView,
     ObjectDeleteView,
@@ -14,6 +13,7 @@ from netbox_ztp.filters import (
 )
 from netbox_ztp.models import OnboardedDevice
 from netbox_ztp.tables import OnboardedDeviceTable
+from netbox_ztp.ui import OnboardedDevicePanel
 from utilities.views import register_model_view
 
 __all__ = [

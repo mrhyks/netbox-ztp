@@ -65,6 +65,7 @@ class OnboardedDevice(PrimaryModel):
         ('new', 'New'),
         ('onboarded', 'Onboarded'),
         ('needs_update', 'Needs Update'),
+        ('updating', 'Updating'),
         ('updated', 'Updated'),
         ('failed', 'Failed'),
     )

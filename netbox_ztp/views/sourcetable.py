@@ -1,6 +1,7 @@
 from typing import ClassVar
 
 from django.contrib import messages
+from django.contrib.auth import get_user
 from django.shortcuts import redirect
 from django.views import View
 
@@ -71,6 +72,13 @@ class SourceDeviceView(ObjectView):
 @register_model_view(SourceDevice, name='onboard')
 class SourceDeviceOnboardView(View):
     def get(self, request, pk):
+        user = get_user(request)
+        if not user.is_authenticated:
+            messages.error(request, 'You must be authenticated to run onboarding.')
+            return redirect('login')
+
+        # Ensure change-logging code receives a concrete User instance (not a lazy wrapper).
+        request.user = user
         obj = SourceDevice.objects.get(pk=pk)
         OnboardDeviceScript(obj).run()
         messages.success(request, f'Onboard workflow launched for {obj}')
