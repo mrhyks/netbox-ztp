@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 
 from django.contrib.contenttypes.models import ContentType
 from napalm import get_network_driver
@@ -314,6 +315,8 @@ class BaseOnboardedDeviceJob(OnboardDevices):
         self.assignment = SoftwareAssignment.objects.get(
             device_types=self.onboarded_device.device.device_type
         )
+        self.onboarded_device.last_seen = datetime.now()
+        self.onboarded_device.save()
 
     def napalm_connect(self) -> NetworkDriver:
         """Establish a NAPALM connection to the device."""
@@ -542,8 +545,6 @@ class CiscoOnboardedDeviceJob(BaseOnboardedDeviceJob):
                 f'Device {self.address} updated with file {self.assignment.file_path.split("/")[-1]}, waiting for restart.',
             )
             self._netmiko_connection.disconnect()
-            self.onboarded_device.status = 'updating'
-            self.onboarded_device.save()
         except Exception as e:  # noqa: BLE001
             self._log(
                 'error',
@@ -593,7 +594,7 @@ class CiscoOnboardedDeviceJob(BaseOnboardedDeviceJob):
                 self.onboarded_device.status = 'needs_update'
                 self.onboarded_device.save()
                 self.update_device()
-                self.onboarded_device.status = 'updated'
+                self.onboarded_device.status = 'updating'
                 self.onboarded_device.save()
 
             elif self.onboarded_device.status == 'new' and not self.update_needed():
@@ -604,7 +605,7 @@ class CiscoOnboardedDeviceJob(BaseOnboardedDeviceJob):
                 self.onboarded_device.status == 'needs_update' and self.update_needed()
             ):
                 self.update_device()
-                self.onboarded_device.status = 'updated'
+                self.onboarded_device.status = 'updating'
                 self.onboarded_device.save()
 
             elif (
