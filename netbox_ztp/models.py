@@ -3,7 +3,6 @@ from django.db import models
 from django.urls import reverse
 
 from dcim.models import Device, DeviceType, Interface, Manufacturer
-from ipam.models import IPRange
 from netbox.models import PrimaryModel
 
 __all__ = [
@@ -23,14 +22,6 @@ class SourceDevice(PrimaryModel):
         null=True,
         blank=True,
         help_text='Optional interface to restrict monitoring for this source device.',
-    )
-    ip_range = models.ForeignKey(
-        IPRange,
-        on_delete=models.SET_NULL,
-        related_name='source_devices',
-        null=True,
-        blank=True,
-        help_text='Optional IPv4/IPv6 range to accept',
     )
     onboarded_devices_vendor = models.ForeignKey(
         Manufacturer,
@@ -105,10 +96,9 @@ class ZTPLog(PrimaryModel):
     time = models.DateTimeField(auto_now_add=True)
     level = models.CharField(max_length=16, choices=LEVEL_CHOICES, default='info')
     source_device = models.ForeignKey(SourceDevice, on_delete=models.SET_NULL, null=True, blank=True, related_name='logs')
-    ip_address = models.GenericIPAddressField(protocol='IPv4', null=True, blank=True)
-    serial_number = models.CharField(max_length=128, blank=True)
+    device = models.ForeignKey(Device, on_delete=models.SET_NULL, null=True, blank=True)
     message = models.TextField()
-
+    
     class Meta:
         ordering = ('-time',)
         verbose_name = 'Log entry'

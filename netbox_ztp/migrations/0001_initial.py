@@ -10,6 +10,10 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
+        ('dcim', '0251_fix_ltree_cascade_triggers'),
+        ('extras', '0144_customfield_status'),
+        ('ipam', '0097_merge_ipaddress_host_index_and_multi_protocol_services'),
+        ('users', '0016_default_ordering_indexes'),
     ]
 
     operations = [

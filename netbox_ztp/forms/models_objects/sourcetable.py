@@ -4,7 +4,6 @@ from django import forms
 from django.utils.translation import gettext as _
 
 from dcim.models import Device, Interface, Manufacturer
-from ipam.models import IPRange
 from netbox.forms import PrimaryModelForm
 from netbox_ztp.models import SourceDevice
 from utilities.forms.fields import DynamicModelChoiceField
@@ -25,11 +24,6 @@ class SourceDeviceForm(PrimaryModelForm):
             'device_id': '$device',
         },
     )
-    ip_range = DynamicModelChoiceField(
-        queryset=IPRange.objects.all(),
-        required=False,
-        label=_('IP Range'),
-    )
     onboarded_devices_vendor = DynamicModelChoiceField(
         queryset=Manufacturer.objects.all(),
         label=_('Onboarded Device Vendor'),
@@ -40,4 +34,4 @@ class SourceDeviceForm(PrimaryModelForm):
 
     class Meta:
         model = SourceDevice
-        fields: ClassVar[list[str]] = ['device', 'interface', 'ip_range', 'onboarded_devices_vendor', 'enabled', 'scan_interval']
+        fields: ClassVar[list[str]] = ['device', 'interface', 'onboarded_devices_vendor', 'enabled', 'scan_interval']

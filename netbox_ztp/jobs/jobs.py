@@ -1,3 +1,4 @@
+import json
 import re
 from datetime import datetime
 
@@ -29,75 +30,14 @@ class OnboardDevices:
     def __init__(self, source_device: SourceDevice):
         self.source_device = source_device
 
-    def _log(self, level, message, ip_address=None, serial_number=''):
+    def _log(self, level, message, device: Device = None):
         ZTPLog.objects.create(
             source_device=self.source_device,
             level=level,
-            ip_address=ip_address,
-            serial_number=serial_number,
+            device=device,
             message=message,
         )
         print(message)
-
-    def get_arp_entries(self, username, password, optional_args):
-        interface_name = (
-            self.source_device.interface.name if self.source_device.interface else None
-        )
-        if interface_name:
-            message = (
-                f'Running job on device {self.source_device.device.name} '
-                f'with IP: {self.source_device.device.primary_ip4.address} using interface {interface_name}'
-            )
-        else:
-            message = (
-                f'Running job on device {self.source_device.device.name} '
-                f'with IP: {self.source_device.device.primary_ip4}'
-            )
-        self._log('info', message)
-
-        driver_name = str(
-            self.source_device.device.device_type.manufacturer.slug
-        ).lower()
-        driver_name = driver_name.replace('juniper', 'junos').replace('cisco', 'ios')
-        driver = get_network_driver(driver_name)
-        connection = driver(
-            hostname=str(self.source_device.device.name),
-            username=username,
-            password=password,
-            optional_args=optional_args,
-        )
-        connection.open()
-        self._log(
-            'success',
-            f"Successfully connected to device '{self.source_device.device.name}'",
-        )
-        arp_entries = connection.get_arp_table()
-        if interface_name:
-            arp_entries = [
-                entry
-                for entry in arp_entries
-                if str(
-                    entry.get(
-                        'interface',
-                        entry.get('interface_name', entry.get('ifname', '')),
-                    )
-                ).lower()
-                == interface_name.lower()
-            ]
-        if self.source_device.ip_range:
-            start_range = str(self.source_device.ip_range.start_address).split('/')[0]
-            end_range = str(self.source_device.ip_range.end_address).split('/')[0]
-            arp_entries = [
-                entry
-                for entry in arp_entries
-                if start_range <= str(entry.get('ip', '')) <= end_range
-            ]
-
-        self._log(
-            'info',
-            f"Retrieved ARP entries for interface '{interface_name or 'all interfaces'}' and range '{self.source_device.ip_range or 'all addresses'}': {arp_entries}",
-        )
-        return arp_entries
 
     def _normalize_mac(self, mac: str) -> str:
         value = re.sub(r'[^0-9A-Fa-f]', '', str(mac or '')).lower()
@@ -163,6 +103,7 @@ class OnboardDevices:
         self._log(
             'info',
             f"Collecting DHCP leases from source device '{self.source_device.device.name}'",
+            self.source_device.device,
         )
 
         driver_name = str(
@@ -196,6 +137,7 @@ class OnboardDevices:
                 self._log(
                     'warning',
                     f"DHCP lease collection is not implemented for driver '{driver_name}'",
+                    self.source_device.device,
                 )
         finally:
             connection.close()
@@ -209,7 +151,8 @@ class OnboardDevices:
 
         self._log(
             'info',
-            f"Retrieved DHCP leases for interface '{interface_name or 'all interfaces'}': {leases}",
+            f"Retrieved DHCP leases for interface '{interface_name or 'all interfaces'}': {json.dumps(leases, indent=2, sort_keys=True)}",
+            self.source_device.device,
         )
         return leases
 
@@ -217,7 +160,6 @@ class OnboardDevices:
         role = DeviceRole.objects.get_or_create(
             name='ztp',
             slug='ztp',
-            color='ff0000',
         )
         if role[1]:
             self._log('info', "Created device role 'ztp'")
@@ -268,10 +210,9 @@ class OnboardDevices:
         dhcp_leases = self.get_dhcp_leases(username, password, optional_args)
 
         for entry in dhcp_leases:
+            self._log('info', f'Processing DHCP lease entry: {entry}')
             address = str(entry.get('ip') or '').strip()
             mac_address = str(entry.get('mac') or '').strip()
-            if not address or not mac_address:
-                continue
             if self.source_device.onboarded_devices_vendor.slug == 'cisco':
                 try:
                     CiscoOnboardedDeviceJob(
@@ -326,6 +267,7 @@ class BaseOnboardedDeviceJob(OnboardDevices):
             username=self.username,
             password=self.password,
             optional_args=self.optional_args,
+            timeout=15,
         )
         connection.open()
         self._facts = connection.get_facts() or {}
@@ -341,12 +283,17 @@ class BaseOnboardedDeviceJob(OnboardDevices):
             username=self.username,
             password=self.password,
             **self.optional_args,
+            timeout=15,
         )
         return connection
 
     def create_new_device(self) -> OnboardedDevice:
 
-        self._log('info', f"Creating new device for address '{self.address}'")
+        self._log(
+            'info',
+            f"Creating new device for address '{self.address}'",
+            self.onboarded_device.device,
+        )
         device = Device.objects.create(
             name=self._facts.get('serial_number'),
             role=DeviceRole.objects.get(name='ztp'),
@@ -355,11 +302,20 @@ class BaseOnboardedDeviceJob(OnboardDevices):
             ),
             serial=self._facts.get('serial_number', ''),
             site=Site.objects.get(name='ztp'),
-            tags=[Tag.objects.get(name='ztp')],
         )
-        self._log('info', f"Created device '{device.pk}' for address '{self.address}'")
+        device.tags.add(Tag.objects.get(name='ztp'))
+        device.save()
+        self._log(
+            'info',
+            f"Created device '{device.pk}' for address '{self.address}'",
+            self.onboarded_device.device,
+        )
 
-        self._log('info', f"Creating onboarded device for address '{self.address}'")
+        self._log(
+            'info',
+            f"Creating onboarded device for address '{self.address}'",
+            self.onboarded_device.device,
+        )
         onboarded_device = OnboardedDevice.objects.create(
             device=device,
             source_device=self.source_device,
@@ -367,11 +323,13 @@ class BaseOnboardedDeviceJob(OnboardDevices):
         self._log(
             'info',
             f"Created onboarded device '{onboarded_device.pk}' for address '{self.address}'",
+            self.onboarded_device.device,
         )
 
         self._log(
             'info',
             f"Creating primary IP for device '{device.pk}' with address '{self.address}'",
+            self.onboarded_device.device,
         )
         ip = self.create_primary_ip(
             device=device,
@@ -382,13 +340,14 @@ class BaseOnboardedDeviceJob(OnboardDevices):
         self._log(
             'info',
             f"Created primary IP '{ip.pk}' for device '{device.pk}' with address '{self.address}'",
+            self.onboarded_device.device,
         )
 
         try:
             self._log(
                 'info',
                 f'Setting primary and OOB IP for device {device}',
-                ip_address=self.address,
+                self.onboarded_device.device,
             )
             device.primary_ip4 = ip
             device.oob_ip = ip
@@ -396,11 +355,13 @@ class BaseOnboardedDeviceJob(OnboardDevices):
             self._log(
                 'info',
                 f'Successfully set primary and OOB IP for device {device}',
-                ip_address=self.address,
+                self.onboarded_device.device,
             )
         except ValueError as e:
             self._log(
-                'error', f'Error setting primary or OOB IP for device {device}: {e}'
+                'error',
+                f'Error setting primary or OOB IP for device {device}: {e}',
+                self.onboarded_device.device,
             )
         return onboarded_device
 
@@ -420,26 +381,17 @@ class BaseOnboardedDeviceJob(OnboardDevices):
         self._log(
             'info',
             f'Checking if update is needed for device {self.onboarded_device.device.name}',
-            ip_address=str(self.onboarded_device.device.primary_ip4.address).split('/')[
-                0
-            ],
-            serial_number=self.onboarded_device.device.serial,
+            self.onboarded_device.device,
         )
         self._log(
             'info',
             f'Found {"1" if self.assignment else "0"} software assignments for device {self.onboarded_device.device.name}',
-            ip_address=str(self.onboarded_device.device.primary_ip4.address).split('/')[
-                0
-            ],
-            serial_number=self.onboarded_device.device.serial,
+            self.onboarded_device.device,
         )
         self._log(
             'info',
             f'Current software version for device {self.onboarded_device.device.name} is {version} and required is {self.assignment.version if self.assignment else "N/A"}',
-            ip_address=str(self.onboarded_device.device.primary_ip4.address).split('/')[
-                0
-            ],
-            serial_number=self.onboarded_device.device.serial,
+            self.onboarded_device.device,
         )
         return bool(self.assignment and self.assignment.version != version)
 
@@ -448,13 +400,17 @@ class BaseOnboardedDeviceJob(OnboardDevices):
         diff = connection.compare_config()
         if diff:
             self._log(
-                'info', f'Configuration diff for device {connection.hostname}:\n{diff}'
+                'info',
+                f'Configuration diff for device {connection.hostname}:\n{diff}',
+                self.onboarded_device.device,
             )
             connection.commit_config()
             return True
         else:
             self._log(
-                'info', f'No configuration changes for device {connection.hostname}.'
+                'info',
+                f'No configuration changes for device {connection.hostname}.',
+                self.onboarded_device.device,
             )
             connection.discard_config()
             return False
@@ -462,7 +418,11 @@ class BaseOnboardedDeviceJob(OnboardDevices):
     def create_primary_ip(
         self, device: Device, ip_address: str, connection: NetworkDriver, mac: str
     ) -> IPAddress:
-        self._log('info', f"Creating primary IP '{ip_address}' for device '{device}'")
+        self._log(
+            'info',
+            f"Creating primary IP '{ip_address}' for device '{device}'",
+            self.onboarded_device.device,
+        )
         mgmt_interface = Interface.objects.get(device=device, mgmt_only=True)
         MACAddress.objects.create(
             mac_address=mac,
@@ -475,7 +435,11 @@ class BaseOnboardedDeviceJob(OnboardDevices):
             assigned_object_id=mgmt_interface.pk,
             assigned_object_type=ContentType.objects.get_for_model(Interface),
         )
-        self._log('info', f"Created primary IP '{ip_address}' for device '{device}'")
+        self._log(
+            'info',
+            f"Created primary IP '{ip_address}' for device '{device}'",
+            self.onboarded_device.device,
+        )
         return ip
 
 
@@ -492,6 +456,7 @@ class CiscoOnboardedDeviceJob(BaseOnboardedDeviceJob):
             self._log(
                 'error',
                 f'Failed to check SCP server on device {self._netmiko_connection.host}: {e}',
+                self.onboarded_device.device,
             )
 
     def check_file_exists(self) -> bool:
@@ -505,6 +470,7 @@ class CiscoOnboardedDeviceJob(BaseOnboardedDeviceJob):
             self._log(
                 'error',
                 f'Failed to check file existence on device {self._netmiko_connection.host}: {e}',
+                self.onboarded_device.device,
             )
             return False
 
@@ -525,14 +491,20 @@ class CiscoOnboardedDeviceJob(BaseOnboardedDeviceJob):
                 self._log(
                     'info',
                     f'Transferred file {self.assignment.file_path} to device {self.address}.',
+                    self.onboarded_device.device,
                 )
             else:
                 self._log(
                     'info',
                     f'File {self.assignment.file_path} already exists on device {self.address}.',
+                    self.onboarded_device.device,
                 )
             self._netmiko_connection.send_command('write memory')
-            self._log('info', f'Wrote memory on device {self.address}.')
+            self._log(
+                'success',
+                f'Wrote memory on device {self.address}.',
+                self.onboarded_device.device,
+            )
             self._netmiko_connection.send_command_timing(
                 f'install add file flash:{self.assignment.file_path.split("/")[-1]} activate commit prompt-level none',
                 cmd_verify=False,
@@ -541,21 +513,25 @@ class CiscoOnboardedDeviceJob(BaseOnboardedDeviceJob):
             )
 
             self._log(
-                'info',
+                'success',
                 f'Device {self.address} updated with file {self.assignment.file_path.split("/")[-1]}, waiting for restart.',
+                self.onboarded_device.device,
             )
             self._netmiko_connection.disconnect()
         except Exception as e:  # noqa: BLE001
             self._log(
                 'error',
                 f'Failed to update device {self._netmiko_connection.host}: {e}',
+                self.onboarded_device.device,
             )
 
     def update_cleanup(self) -> None:
         """Clean up inactive packages on the device."""
         try:
             self._log(
-                'info', f'Cleaning up inactive packages on device {self.address}.'
+                'info',
+                f'Cleaning up inactive packages on device {self.address}.',
+                self.onboarded_device.device,
             )
             remove_inactive_output = self._netmiko_connection.send_command_timing(
                 'install remove inactive',
@@ -578,13 +554,15 @@ class CiscoOnboardedDeviceJob(BaseOnboardedDeviceJob):
                     )
                 )
             self._log(
-                'info',
+                'success',
                 f'Inactive package cleanup output for device {self.address}:\n{remove_inactive_output_text}',
+                self.onboarded_device.device,
             )
         except Exception as e:  # noqa: BLE001
             self._log(
                 'error',
                 f'Failed to clean up inactive packages on device {self._netmiko_connection.host}: {e}',
+                self.onboarded_device.device,
             )
 
     def onboard_device(self) -> None:
@@ -614,6 +592,12 @@ class CiscoOnboardedDeviceJob(BaseOnboardedDeviceJob):
             ) and not self.update_needed():
                 self.onboarded_device.status = 'updated'
                 self.onboarded_device.save()
+            else:
+                self._log(
+                    'success',
+                    f'No update needed for device {self.address}',
+                    self.onboarded_device.device,
+                )
 
             self._netmiko_connection.disconnect()
             self._napalm_connection.close()
@@ -622,4 +606,5 @@ class CiscoOnboardedDeviceJob(BaseOnboardedDeviceJob):
             self._log(
                 'error',
                 f'Failed to onboard device {self.address}: {e}',
+                self.onboarded_device.device,
             )

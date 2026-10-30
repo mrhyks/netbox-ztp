@@ -3,11 +3,17 @@ from typing import ClassVar
 from django import forms
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
-from django_filters import BooleanFilter, CharFilter, FilterSet, ModelChoiceFilter
+from django_filters import (
+    BooleanFilter,
+    CharFilter,
+    ChoiceFilter,
+    FilterSet,
+    ModelChoiceFilter,
+)
 
-from dcim.models import Interface
+from dcim.models import Device, Interface
 
-from .models import OnboardedDevice, SoftwareAssignment, SourceDevice
+from .models import OnboardedDevice, SoftwareAssignment, SourceDevice, ZTPLog
 
 
 class SourceDeviceFilterSet(FilterSet):
@@ -81,3 +87,24 @@ class SoftwareAssignmentFilterForm(forms.Form):
     version = forms.CharField(required=False, label=_('Version'))
     file_path = forms.CharField(required=False, label=_('File Path'))
     description = forms.CharField(required=False, label=_('Description'))
+    
+class ZTPLogFilterSet(FilterSet):
+    q = CharFilter(method='search', label=_('Search'))
+    level = ChoiceFilter(field_name='level', choices=ZTPLog.LEVEL_CHOICES)
+    device = ModelChoiceFilter(field_name='device', queryset=Device.objects.filter(tags__name='ztp')) 
+
+    class Meta:
+        model = ZTPLog
+        fields: ClassVar[list[str]] = ['q', 'device', 'level']
+
+    def search(self, queryset, name, value):
+        return queryset.filter(
+            Q(device__icontains=value)
+            | Q(level__icontains=value)
+            | Q(message__icontains=value)
+        )
+
+class ZTPLogFilterForm(forms.Form):
+    q = forms.CharField(required=False, label=_('Search'))
+    device = forms.ModelChoiceField(queryset=Device.objects.filter(tags__name='ztp'), required=False, label=_('Device'))
+    level = forms.ChoiceField(choices=ZTPLog.LEVEL_CHOICES, required=False, label=_('Level'))

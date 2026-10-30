@@ -22,5 +22,7 @@ __all__ = [
     'SourceDeviceView',
     'ZTPLogBulkDeleteView',
     'ZTPLogBulkExportView',
+    'ZTPLogDeleteView',
     'ZTPLogListView',
+    'ZTPLogView',
 ]

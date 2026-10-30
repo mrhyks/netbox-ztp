@@ -1,10 +1,10 @@
-
 from netbox.object_actions import BulkDelete, BulkExport
 from netbox.views.generic import (
     BulkDeleteView,
-    ObjectEditView,
+    ObjectDeleteView,
     ObjectListView,
 )
+from netbox_ztp.filters import ZTPLogFilterForm, ZTPLogFilterSet
 from netbox_ztp.models import ZTPLog
 from netbox_ztp.tables import ZTPLogTable
 from utilities.views import register_model_view
@@ -12,6 +12,7 @@ from utilities.views import register_model_view
 __all__ = [
     'ZTPLogBulkDeleteView',
     'ZTPLogBulkExportView',
+    'ZTPLogDeleteView',
     'ZTPLogListView',
 ]
 
@@ -20,7 +21,12 @@ __all__ = [
 class ZTPLogListView(ObjectListView):
     queryset = ZTPLog.objects.all()
     table = ZTPLogTable
-    actions = (BulkDelete, BulkExport)
+    actions = (
+        BulkDelete,
+        BulkExport,
+    )
+    filterset = ZTPLogFilterSet
+    filterset_form = ZTPLogFilterForm
 
 
 @register_model_view(ZTPLog, name='bulk_delete', detail=False)
@@ -28,10 +34,11 @@ class ZTPLogBulkDeleteView(BulkDeleteView):
     queryset = ZTPLog.objects.all()
 
 
-@register_model_view(ZTPLog, name='bulk_export',  detail=False)
+@register_model_view(ZTPLog, name='bulk_export', detail=False)
 class ZTPLogBulkExportView(BulkExport):
     queryset = ZTPLog.objects.all()
 
+
 @register_model_view(ZTPLog, name='delete')
-class ZTPLogEditView(ObjectEditView):
+class ZTPLogDeleteView(ObjectDeleteView):
     queryset = ZTPLog.objects.all()
