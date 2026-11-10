@@ -214,20 +214,16 @@ class OnboardDevices:
             address = str(entry.get('ip') or '').strip()
             mac_address = str(entry.get('mac') or '').strip()
             if self.source_device.onboarded_devices_vendor.slug == 'cisco':
-                try:
-                    CiscoOnboardedDeviceJob(
-                        zeroday_username,
-                        zeroday_password,
-                        optional_args,
-                        address,
-                        mac_address,
-                        'ios',
-                        self.source_device,
-                    ).onboard_device()
-                except Exception as e:  # noqa: BLE001
-                    self._log(
-                        'error', f"Failed to onboard device at address '{address}': {e}"
-                    )
+                job = CiscoOnboardedDeviceJob(
+                    zeroday_username,
+                    zeroday_password,
+                    optional_args,
+                    address,
+                    mac_address,
+                    'ios',
+                    self.source_device,
+                )
+                job.onboard_device()
 
 
 class BaseOnboardedDeviceJob(OnboardDevices):
@@ -292,9 +288,8 @@ class BaseOnboardedDeviceJob(OnboardDevices):
         self._log(
             'info',
             f"Creating new device for address '{self.address}'",
-            self.onboarded_device.device,
         )
-        device = Device.objects.create(
+        device, created = Device.objects.get_or_create(
             name=self._facts.get('serial_number'),
             role=DeviceRole.objects.get(name='ztp'),
             device_type=DeviceType.objects.get(
@@ -303,18 +298,19 @@ class BaseOnboardedDeviceJob(OnboardDevices):
             serial=self._facts.get('serial_number', ''),
             site=Site.objects.get(name='ztp'),
         )
-        device.tags.add(Tag.objects.get(name='ztp'))
-        device.save()
+        if not device.tags.filter(name='ztp').exists():
+            device.tags.add(Tag.objects.get(name='ztp'))
+            device.save()
         self._log(
             'info',
-            f"Created device '{device.pk}' for address '{self.address}'",
-            self.onboarded_device.device,
+            f"{'Created' if created else 'Found'} device '{device.pk}' for address '{self.address}'",
+            device,
         )
 
         self._log(
             'info',
             f"Creating onboarded device for address '{self.address}'",
-            self.onboarded_device.device,
+            device,
         )
         onboarded_device = OnboardedDevice.objects.create(
             device=device,
@@ -322,14 +318,14 @@ class BaseOnboardedDeviceJob(OnboardDevices):
         )
         self._log(
             'info',
-            f"Created onboarded device '{onboarded_device.pk}' for address '{self.address}'",
-            self.onboarded_device.device,
+            f"{'Created' if created else 'Found'} onboarded device '{onboarded_device.pk}' for address '{self.address}'",
+            device,
         )
 
         self._log(
             'info',
             f"Creating primary IP for device '{device.pk}' with address '{self.address}'",
-            self.onboarded_device.device,
+            device,
         )
         ip = self.create_primary_ip(
             device=device,
@@ -340,14 +336,14 @@ class BaseOnboardedDeviceJob(OnboardDevices):
         self._log(
             'info',
             f"Created primary IP '{ip.pk}' for device '{device.pk}' with address '{self.address}'",
-            self.onboarded_device.device,
+            device,
         )
 
         try:
             self._log(
                 'info',
                 f'Setting primary and OOB IP for device {device}',
-                self.onboarded_device.device,
+                device,
             )
             device.primary_ip4 = ip
             device.oob_ip = ip
@@ -355,23 +351,26 @@ class BaseOnboardedDeviceJob(OnboardDevices):
             self._log(
                 'info',
                 f'Successfully set primary and OOB IP for device {device}',
-                self.onboarded_device.device,
+                device,
             )
         except ValueError as e:
             self._log(
                 'error',
                 f'Error setting primary or OOB IP for device {device}: {e}',
-                self.onboarded_device.device,
+                device,
             )
         return onboarded_device
 
     def ensure_device(self) -> OnboardedDevice:
         """Ensure the device exists and return the onboarded device."""
         try:
-            return OnboardedDevice.objects.get(
+            tmp =  OnboardedDevice.objects.get(
                 device__serial=self._facts.get('serial_number')
             )
+            print(f"Found existing OnboardedDevice with serial {self._facts.get('serial_number')}. Device name: {tmp.device.name}")
+            return tmp
         except OnboardedDevice.DoesNotExist:
+            print(f"OnboardedDevice with serial {self._facts.get('serial_number')} does not exist. Creating new device.")
             return self.create_new_device()
 
     def update_needed(self):
@@ -421,7 +420,7 @@ class BaseOnboardedDeviceJob(OnboardDevices):
         self._log(
             'info',
             f"Creating primary IP '{ip_address}' for device '{device}'",
-            self.onboarded_device.device,
+            device,
         )
         mgmt_interface = Interface.objects.get(device=device, mgmt_only=True)
         MACAddress.objects.create(
@@ -438,12 +437,15 @@ class BaseOnboardedDeviceJob(OnboardDevices):
         self._log(
             'info',
             f"Created primary IP '{ip_address}' for device '{device}'",
-            self.onboarded_device.device,
+            device,
         )
         return ip
 
 
 class CiscoOnboardedDeviceJob(BaseOnboardedDeviceJob):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
     def ensure_scp_server(self) -> None:
         """Ensure the SCP server is enabled on the device."""
         try:
@@ -567,44 +569,39 @@ class CiscoOnboardedDeviceJob(BaseOnboardedDeviceJob):
 
     def onboard_device(self) -> None:
         """Onboard the device."""
-        try:
-            if self.onboarded_device.status == 'new' and self.update_needed():
-                self.onboarded_device.status = 'needs_update'
-                self.onboarded_device.save()
-                self.update_device()
-                self.onboarded_device.status = 'updating'
-                self.onboarded_device.save()
+        if not self.onboarded_device:
+            self.onboarded_device = self.ensure_device()
+            
+        if self.onboarded_device.status == 'new' and self.update_needed():
+            self.onboarded_device.status = 'needs_update'
+            self.onboarded_device.save()
+            self.update_device()
+            self.onboarded_device.status = 'updating'
+            self.onboarded_device.save()
 
-            elif self.onboarded_device.status == 'new' and not self.update_needed():
-                self.onboarded_device.status = 'updated'
-                self.onboarded_device.save()
+        elif self.onboarded_device.status == 'new' and not self.update_needed():
+            self.onboarded_device.status = 'updated'
+            self.onboarded_device.save()
 
-            elif (
-                self.onboarded_device.status == 'needs_update' and self.update_needed()
-            ):
-                self.update_device()
-                self.onboarded_device.status = 'updating'
-                self.onboarded_device.save()
+        elif (
+            self.onboarded_device.status == 'needs_update' and self.update_needed()
+        ):
+            self.update_device()
+            self.onboarded_device.status = 'updating'
+            self.onboarded_device.save()
 
-            elif (
-                self.onboarded_device.status == 'needs_update'
-                or self.onboarded_device.status == 'updating'
-            ) and not self.update_needed():
-                self.onboarded_device.status = 'updated'
-                self.onboarded_device.save()
-            else:
-                self._log(
-                    'success',
-                    f'No update needed for device {self.address}',
-                    self.onboarded_device.device,
-                )
-
-            self._netmiko_connection.disconnect()
-            self._napalm_connection.close()
-
-        except Exception as e:  # noqa: BLE001
+        elif (
+            self.onboarded_device.status == 'needs_update'
+            or self.onboarded_device.status == 'updating'
+        ) and not self.update_needed():
+            self.onboarded_device.status = 'updated'
+            self.onboarded_device.save()
+        else:
             self._log(
-                'error',
-                f'Failed to onboard device {self.address}: {e}',
+                'success',
+                f'No update needed for device {self.address}',
                 self.onboarded_device.device,
             )
+
+        self._netmiko_connection.disconnect()
+        self._napalm_connection.close()
