@@ -381,25 +381,35 @@ class BaseOnboardedDeviceJob(OnboardDevices):
         )
         return bool(self.assignment and self.assignment.version != version)
 
-    def upload_config(self, connection: NetworkDriver, config: str) -> bool:
-        connection.load_replace_candidate(config=config)
-        diff = connection.compare_config()
-        if diff:
+    def upload_config(self) -> bool:
+        """Upload the configuration to the device."""
+        if self.onboarded_device.device.local_context_data:
             self._log(
                 'info',
-                f'Configuration diff for device {connection.hostname}:\n{diff}',
+                f"Uploading configuration to device '{self.onboarded_device.device.name}'",
                 self.onboarded_device.device,
             )
-            connection.commit_config()
-            return True
         else:
             self._log(
-                'info',
-                f'No configuration changes for device {connection.hostname}.',
+                'warning',
+                f"No local context data found for device '{self.onboarded_device.device.name}'. Skipping configuration upload.",
                 self.onboarded_device.device,
             )
-            connection.discard_config()
             return False
+        
+        self.onboarded_device.device.render_config_context()
+        config_context = self.onboarded_device.device.get_config_context()
+        config_template = self.onboarded_device.device.get_config_template()
+        self._log(
+            'debug',
+            f"Config context for device '{self.onboarded_device.device.name}': {json.dumps(config_context, indent=2, sort_keys=True)}",
+            self.onboarded_device.device,
+        )
+        self._log(
+            'debug',
+            f"Config template for device '{self.onboarded_device.device.name}': {config_template}",
+            self.onboarded_device.device,
+        )
 
     def create_primary_ip(
         self, device: Device, ip_address: str, connection: NetworkDriver, mac: str
@@ -589,6 +599,12 @@ class CiscoOnboardedDeviceJob(BaseOnboardedDeviceJob):
                 f'No update needed for device {self.address}',
                 self.onboarded_device.device,
             )
+            
+        if self.onboarded_device.status == 'updated':
+            self.update_cleanup()
+            self.upload_config()
+            self.onboarded_device.status = 'onboarded'
+            self.onboarded_device.save()
 
         self._netmiko_connection.disconnect()
         self._napalm_connection.close()
