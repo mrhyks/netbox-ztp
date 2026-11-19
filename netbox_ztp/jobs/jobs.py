@@ -1,5 +1,6 @@
 import json
 import re
+import time
 from datetime import datetime
 
 from django.contrib.contenttypes.models import ContentType
@@ -7,7 +8,7 @@ from napalm import get_network_driver
 from napalm.base.base import NetworkDriver
 from netmiko import BaseConnection, file_transfer
 
-from dcim.models import Device, DeviceRole, DeviceType, Interface, MACAddress, Site
+from dcim.models import Device, DeviceRole, DeviceType, Interface, MACAddress, Site, Platform
 from extras.models import Tag
 from ipam.models import IPAddress
 from netbox.plugins import get_plugin_config
@@ -214,16 +215,23 @@ class OnboardDevices:
             address = str(entry.get('ip') or '').strip()
             mac_address = str(entry.get('mac') or '').strip()
             if self.source_device.onboarded_devices_vendor.slug == 'cisco':
-                job = CiscoOnboardedDeviceJob(
-                    zeroday_username,
-                    zeroday_password,
-                    optional_args,
-                    address,
-                    mac_address,
-                    'ios',
-                    self.source_device,
-                )
-                job.onboard_device()
+                try:
+                    job = CiscoOnboardedDeviceJob(
+                        zeroday_username,
+                        zeroday_password,
+                        optional_args,
+                        address,
+                        mac_address,
+                        'ios',
+                        self.source_device,
+                    )
+                    job.onboard_device()
+                except Exception as e:  # noqa: BLE001
+                    self._log(
+                        'error',
+                        f"Error processing device with IP '{address}' and MAC '{mac_address}': {e}",
+                        job.onboarded_device.device if hasattr(job, 'onboarded_device') else None,
+                    )
 
 
 class BaseOnboardedDeviceJob(OnboardDevices):
@@ -276,9 +284,14 @@ class BaseOnboardedDeviceJob(OnboardDevices):
             'info',
             f"Creating new device for address '{self.address}'",
         )
+        if self.driver == 'ios':
+            platform = 'ios-xe'
+        elif self.driver == 'junos':
+            platform = 'junos'
         device, created = Device.objects.get_or_create(
             name=self._facts.get('serial_number'),
             role=DeviceRole.objects.get(name='ztp'),
+            platform=Platform.objects.get(name=platform) if platform else None,
             device_type=DeviceType.objects.get(
                 part_number=self._facts.get('model') or ''
             ),
@@ -380,36 +393,60 @@ class BaseOnboardedDeviceJob(OnboardDevices):
             self.onboarded_device.device,
         )
         return bool(self.assignment and self.assignment.version != version)
-
-    def upload_config(self) -> bool:
-        """Upload the configuration to the device."""
-        if self.onboarded_device.device.local_context_data:
+    def check_backup(self) -> None:
+        """Check if the backup directory exists and archive is configured."""
+        output = self._netmiko_connection.send_command('dir bootflash:/config-backup/')
+        if "No such file or directory" in output:
+            self._netmiko_connection.send_command('mkdir bootflash:/config-backup/')
+            self._netmiko_connection.send_config_set(['archive', 'path bootflash:/config-backup/', 'maximum 10'])
+            self._netmiko_connection.send_command('write memory')
             self._log(
                 'info',
-                f"Uploading configuration to device '{self.onboarded_device.device.name}'",
+                f"Created backup directory and configured archive on device '{self.onboarded_device.device.name}'",
                 self.onboarded_device.device,
             )
-        else:
+        
+    def upload_config(self) -> bool:
+        """Upload the configuration to the device."""
+        
+        self.check_backup()
+        
+        rendered_config_context = self.onboarded_device.device.render_config_context()
+        config_template = self.onboarded_device.device.get_config_template()
+        
+        if not config_template:
             self._log(
-                'warning',
-                f"No local context data found for device '{self.onboarded_device.device.name}'. Skipping configuration upload.",
+                'error',
+                f"No configuration template found for device '{self.onboarded_device.device.name}'. Skipping configuration upload.",
                 self.onboarded_device.device,
             )
             return False
         
-        self.onboarded_device.device.render_config_context()
-        config_context = self.onboarded_device.device.get_config_context()
-        config_template = self.onboarded_device.device.get_config_template()
+        config = config_template.render(rendered_config_context).splitlines()
+        self._netmiko_connection.send_command('write memory')
+        self._netmiko_connection.send_config_set(config, config_mode_command='configure terminal revert timer 5')
         self._log(
-            'debug',
-            f"Config context for device '{self.onboarded_device.device.name}': {json.dumps(config_context, indent=2, sort_keys=True)}",
+            'info',
+            f"Configuration uploaded to device '{self.onboarded_device.device.name}, waiting for device to apply configuration and restart if necessary.",
             self.onboarded_device.device,
         )
-        self._log(
-            'debug',
-            f"Config template for device '{self.onboarded_device.device.name}': {config_template}",
-            self.onboarded_device.device,
-        )
+        time.sleep(20)
+        if not self._netmiko_connection.is_alive():
+            self._log(
+                'warning',
+                f"Device '{self.onboarded_device.device.name}' is not responding after configuration upload. Configuration should revert in 5 minutes.",
+                self.onboarded_device.device,
+            )
+        else:
+            self._netmiko_connection.send_command('configure confirm')
+            self._netmiko_connection.send_command('write memory')
+            self._log(
+                'info',
+                f"Device '{self.onboarded_device.device.name}' is still alive after configuration upload.",
+                self.onboarded_device.device,
+            )
+        
+        
 
     def create_primary_ip(
         self, device: Device, ip_address: str, connection: NetworkDriver, mac: str
@@ -599,8 +636,12 @@ class CiscoOnboardedDeviceJob(BaseOnboardedDeviceJob):
                 f'No update needed for device {self.address}',
                 self.onboarded_device.device,
             )
-            
-        if self.onboarded_device.status == 'updated':
+        
+        if self.onboarded_device.status == 'onboarded':
+            self.onboarded_device.status = 'updated'
+            self.onboarded_device.save()
+
+        if self.onboarded_device.status == 'updated' and self.onboarded_device.device.local_context_data:
             self.update_cleanup()
             self.upload_config()
             self.onboarded_device.status = 'onboarded'
