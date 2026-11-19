@@ -5,7 +5,7 @@ from datetime import datetime
 from django.contrib.contenttypes.models import ContentType
 from napalm import get_network_driver
 from napalm.base.base import NetworkDriver
-from netmiko import BaseConnection, ConnectHandler, file_transfer
+from netmiko import BaseConnection, file_transfer
 
 from dcim.models import Device, DeviceRole, DeviceType, Interface, MACAddress, Site
 from extras.models import Tag
@@ -247,7 +247,7 @@ class BaseOnboardedDeviceJob(OnboardDevices):
         self.mac_address = mac_address
         self.source_device = source_device
         self._napalm_connection: NetworkDriver = self.napalm_connect()
-        self._netmiko_connection: BaseConnection = self.netmiko_connect()
+        self._netmiko_connection: BaseConnection = self._napalm_connection._netmiko_device # type: ignore
         self.onboarded_device = self.ensure_device()
         self.assignment = SoftwareAssignment.objects.get(
             device_types=self.onboarded_device.device.device_type
@@ -269,19 +269,6 @@ class BaseOnboardedDeviceJob(OnboardDevices):
         self._facts = connection.get_facts() or {}
         return connection
 
-    def netmiko_connect(self) -> BaseConnection:
-        """Establish a Netmiko connection to the device."""
-        connection = ConnectHandler(
-            device_type=self.driver.replace('ios', 'cisco_ios').replace(
-                'junos', 'juniper_junos'
-            ),
-            host=self.address,
-            username=self.username,
-            password=self.password,
-            **self.optional_args,
-            timeout=15,
-        )
-        return connection
 
     def create_new_device(self) -> OnboardedDevice:
 
